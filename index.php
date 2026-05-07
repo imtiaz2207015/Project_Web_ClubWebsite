@@ -1,5 +1,5 @@
 <?php
-
+// Gallery data stored in a PHP array
 $gallery_items = [
     ['title' => 'Golden Hour',     'category' => 'nature',       'photographer' => 'Arif Hossain',  'icon' => '🌅'],
     ['title' => 'Steel and Glass', 'category' => 'architecture', 'photographer' => 'Nadia Islam',   'icon' => '🏛️'],
@@ -175,6 +175,63 @@ $gallery_items = [
 .hero-stats { display: flex; gap: 60px; justify-content: center; margin-top: 80px; flex-wrap: wrap; }
 .stat-num { font-family: 'Cormorant Garamond', serif; font-size: 2.8rem; font-weight: 700; color: var(--purple-4); }
 .stat-label { font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-top: 4px; }
+
+#about { background: var(--bg-deep); padding: 100px 24px; }
+.container { max-width: 1200px; margin: 0 auto; }
+.section-tag { font-size: 0.72rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--purple-4); display: block; margin-bottom: 12px; }
+.section-title { font-family: 'Cormorant Garamond', serif; font-size: clamp(2rem, 4vw, 3.2rem); font-weight: 700; margin-bottom: 40px; }
+.section-title em { font-style: italic; color: var(--purple-3); }
+
+.about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; }
+.about-text p { color: var(--text-secondary); margin-bottom: 20px; font-size: 1.05rem; }
+.about-features { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+.feature-card {
+    padding: 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+.feature-card:hover { border-color: rgba(138,99,255,0.45); transform: translateY(-3px); }
+.feature-icon { font-size: 1.6rem; margin-bottom: 10px; }
+.feature-title { font-weight: 500; font-size: 0.9rem; color: var(--purple-4); margin-bottom: 4px; }
+.feature-desc { font-size: 0.82rem; color: var(--text-muted); }
+
+#gallery { padding: 100px 24px; }
+.gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+
+.gallery-card {
+    position: relative;
+    aspect-ratio: 4/3;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    background: var(--bg-card);
+    transition: all 0.4s ease;
+}
+.gallery-card:hover { transform: scale(1.02); border-color: rgba(138,99,255,0.45); }
+
+.gallery-placeholder {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 3rem;
+    background: linear-gradient(135deg, var(--bg-card), #1e1540);
+}
+
+.gallery-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(0deg, rgba(7,5,15,0.9) 0%, transparent 50%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 20px;
+}
+.gallery-card:hover .gallery-overlay { opacity: 1; }
+.gallery-overlay h3 { font-family: 'Cormorant Garamond', serif; font-size: 1.1rem; }
+.gallery-overlay p  { font-size: 0.78rem; color: var(--purple-4); margin-top: 4px; }
+
     </style>
 </head>
 
@@ -194,36 +251,61 @@ $gallery_items = [
 </nav>
 
 
-<section id="hero">
-    <div class="hero-badge">KUET Photography Society — Est. 2010</div>
+<section id="about">
+    <div class="container">
+        <span class="section-tag">About Us</span>
+        <h2 class="section-title">Passion for <em>Photography</em></h2>
 
-    <h1 class="hero-title">
-        We Capture<br>
-        <span class="line-accent">Every Moment!</span>
-    </h1><br>
-
-    <p class="hero-sub">
-        A creative community of photographers at KUET,
-        united by the art of visual storytelling.
-    </p>
-
-    <div class="hero-cta">
-        <a href="#contact" class="btn-primary">Join the Club</a>
-        <a href="#gallery" class="btn-outline">View Gallery</a>
+        <div class="about-grid">
+            <div class="about-text">
+                <p>KUET Photography Society is the official photography club of
+                Khulna University of Engineering & Technology.</p>
+                <p>From street photography to portraits — our members explore
+                every genre and grow together through workshops and contests.</p>
+            </div>
+            <div class="about-features">
+                <div class="feature-card">
+                    <div class="feature-icon">🎓</div>
+                    <div class="feature-title">Workshops</div>
+                    <div class="feature-desc">Regular sessions led by professionals</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🏆</div>
+                    <div class="feature-title">Contests</div>
+                    <div class="feature-desc">Monthly photo contests with prizes</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🚶</div>
+                    <div class="feature-title">Photo Walks</div>
+                    <div class="feature-desc">Explore Khulna with your camera</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🖼️</div>
+                    <div class="feature-title">Exhibitions</div>
+                    <div class="feature-desc">Annual exhibitions of member work</div>
+                </div>
+            </div>
+        </div>
     </div>
+</section>
 
-    <div class="hero-stats">
-        <div class="stat-item">
-            <div class="stat-num">200+</div>
-            <div class="stat-label">Members</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-num">50+</div>
-            <div class="stat-label">Events</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-num">1200+</div>
-            <div class="stat-label">Photos</div>
+<section id="gallery">
+    <div class="container">
+        <span class="section-tag">Portfolio</span>
+        <h2 class="section-title">Our <em>Gallery</em></h2>
+
+        <div class="gallery-grid">
+            <?php foreach ($gallery_items as $item): ?>
+                <div class="gallery-card" data-category="<?= htmlspecialchars($item['category']) ?>">
+                    <div class="gallery-placeholder">
+                        <span><?= $item['icon'] ?></span>
+                    </div>
+                    <div class="gallery-overlay">
+                        <h3><?= htmlspecialchars($item['title']) ?></h3>
+                        <p>by <?= htmlspecialchars($item['photographer']) ?></p>
+                    </div>
+                </div>
+            <?php endforeach; ?>
         </div>
     </div>
 </section>
