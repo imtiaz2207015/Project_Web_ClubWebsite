@@ -1,7 +1,28 @@
 <?php
+
+// Contact form processing
+$form_success = false;
+$form_errors  = [];
+$sticky = ['name'=>'', 'email'=>'', 'subject'=>'', 'message'=>''];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
+    $sticky['name']    = htmlspecialchars(trim($_POST['name']    ?? ''));
+    $sticky['email']   = htmlspecialchars(trim($_POST['email']   ?? ''));
+    $sticky['subject'] = htmlspecialchars(trim($_POST['subject'] ?? ''));
+    $sticky['message'] = htmlspecialchars(trim($_POST['message'] ?? ''));
+
+    if (empty($sticky['name']))    $form_errors[] = "Name is required.";
+    if (!filter_var($_POST['email'], FILTER_VALIDATE_EMAIL)) $form_errors[] = "A valid email is required.";
+    if (empty($sticky['message'])) $form_errors[] = "Message cannot be empty.";
+
+    if (empty($form_errors)) {
+        $form_success = true;
+        $sticky = ['name'=>'', 'email'=>'', 'subject'=>'', 'message'=>''];
+    }
+}
 // Gallery data stored in a PHP array
 $gallery_items = [
-    ['title' => 'Golden Hour',     'category' => 'nature',       'photographer' => 'Araf Hasan',    'icon' => '🌅'],
+    ['title' => 'Golden Hour',     'category' => 'nature',       'photographer' => 'Araf Hasan',   'icon' => '🌅'],
     ['title' => 'Steel and Glass', 'category' => 'architecture', 'photographer' => 'Nadia Imtiaz', 'icon' => '🏛️'],
     ['title' => 'Silent Portrait', 'category' => 'portrait',     'photographer' => 'Rahim Khan',   'icon' => '👤'],
     ['title' => 'Monsoon Fest',    'category' => 'event',        'photographer' => 'Anwesha Das',  'icon' => '🎉'],
@@ -17,6 +38,15 @@ $events = [
     ['date' => '22 Jun 2025', 'title' => 'Portrait Workshop',       'location' => 'KUET Campus',     'spots' => 15],
     ['date' => '10 Jul 2025', 'title' => 'Monsoon Photo Contest',   'location' => 'Online',          'spots' => 50],
     ['date' => '05 Aug 2025', 'title' => 'Annual Exhibition 2025',  'location' => 'KUET Auditorium', 'spots' => 100],
+];
+
+$team = [
+    ['name' => 'Farhan Kabir',   'role' => 'President',         'icon' => '📸'],
+    ['name' => 'Sneha Roy',      'role' => 'Vice President',    'icon' => '🎞️'],
+    ['name' => 'Mahmudul Hasan', 'role' => 'Creative Director', 'icon' => '🖼️'],
+    ['name' => 'Lamia Sultana',  'role' => 'Event Coordinator', 'icon' => '🎭'],
+    ['name' => 'Rakib Ahmed',    'role' => 'Tech Lead',         'icon' => '⚙️'],
+    ['name' => 'Disha Nandi',    'role' => 'Media Manager',     'icon' => '📱'],
 ];
 
 // Gallery filter using GET
@@ -366,58 +396,49 @@ $filtered = ($active_filter === 'all')
 
         /* EVENTS */
 
-        #events{
-            padding:100px 24px;
-            background:var(--bg-deep);
-        }
+        #events { background: var(--bg-deep); padding: 100px 24px; }
+.events-list { display: flex; flex-direction: column; gap: 16px; }
+.event-card {
+    display: grid; grid-template-columns: 90px 1fr;
+    gap: 24px; align-items: center;
+    padding: 24px 28px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+.event-card:hover { 
+    border-color: rgba(138,99,255,0.45); transform: translateX(4px); 
+}
+.event-date { 
+    text-align: center; padding: 12px; background: rgba(124,58,237,0.15); border-radius: 6px; border: 1px solid rgba(138,99,255,0.45); 
+}
+.event-date .day { 
+    font-family: 'Cormorant Garamond', serif; font-size: 1.8rem; font-weight: 700; color: var(--purple-4); line-height: 1;
+ }
+.event-date .month { 
+    font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-top: 3px; 
+}
+.event-info h3 { 
+    font-family: 'Cormorant Garamond', serif; font-size: 1.2rem; margin-bottom: 6px;
+ }
+.event-meta { 
+    display: flex; gap: 20px; font-size: 0.82rem; color: var(--text-muted); 
+}
 
-        .events-list{
-            display:flex;
-            flex-direction:column;
-            gap:16px;
-        }
 
-        .event-card{
-            display:grid;
-            grid-template-columns:90px 1fr;
-            gap:24px;
-            align-items:center;
-            padding:24px 28px;
-            background:var(--bg-card);
-            border:1px solid var(--border);
-            border-radius:12px;
-            transition:0.3s;
-        }
 
-        .event-card:hover{
-            transform:translateX(4px);
-            border-color:rgba(138,99,255,0.45);
-        }
-
-        .event-date{
-            text-align:center;
-            padding:12px;
-            border-radius:6px;
-            background:rgba(124,58,237,0.15);
-        }
-
-        .day{
-            font-size:1.8rem;
-            font-weight:700;
-            color:var(--purple-4);
-        }
-
-        .month{
-            font-size:0.72rem;
-            color:var(--text-muted);
-        }
-
-        .event-meta{
-            display:flex;
-            gap:20px;
-            color:var(--text-muted);
-            font-size:0.82rem;
-        }
+#team { padding: 100px 24px; }
+.team-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 40px; }
+.team-card {
+    padding: 32px 24px; text-align: center;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 12px; transition: all 0.35s ease;
+}
+.team-card:hover { border-color: rgba(138,99,255,0.45); transform: translateY(-6px); }
+.team-icon { font-size: 2.8rem; width: 72px; height: 72px; border-radius: 50%; background: rgba(124,58,237,0.12); border: 1px solid rgba(138,99,255,0.45); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+.team-name { font-family: 'Cormorant Garamond', serif; font-size: 1.15rem; font-weight: 600; }
+.team-role { font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--purple-4); margin-top: 4px; }
 
         footer{
             padding:30px;
@@ -426,6 +447,47 @@ $filtered = ($active_filter === 'all')
             color:var(--text-muted);
         }
 
+     #contact { background: var(--bg-deep); padding: 100px 24px; }
+.contact-form-box { max-width: 680px; margin: 40px auto 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 40px; }
+.form-group { margin-bottom: 20px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+label { display: block; font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+input[type="text"], input[type="email"], select, textarea {
+    width: 100%; padding: 12px 16px;
+    background: var(--bg-deep); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text-primary);
+    font-size: 0.95rem; outline: none;
+    transition: border-color 0.25s, box-shadow 0.25s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--purple-3); box-shadow: 0 0 0 3px rgba(139,92,246,0.15); }
+textarea { height: 120px; resize: vertical; font-family: inherit; }
+.form-success { padding: 16px; background: rgba(139,92,246,0.12); border: 1px solid rgba(138,99,255,0.45); border-radius: 6px; color: var(--purple-4); margin-bottom: 20px; }
+.form-errors { padding: 16px; background: rgba(220,38,38,0.1); border: 1px solid rgba(220,38,38,0.3); border-radius: 6px; color: #fca5a5; margin-bottom: 20px; }
+.form-errors ul { list-style: none; }
+.form-errors li::before { content: '• '; 
+}   
+
+footer { background: var(--bg-void); border-top: 1px solid var(--border); padding: 48px 24px 32px; text-align: center; }
+.footer-logo { font-family: 'Cormorant Garamond', serif; font-size: 1.6rem; font-weight: 700; margin-bottom: 12px; }
+.footer-logo span { color: var(--purple-4); }
+.footer-links { display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; margin: 20px 0; }
+.footer-links a { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; transition: color 0.2s; }
+.footer-links a:hover { color: var(--purple-4); }
+.footer-copy { font-size: 0.78rem; color: var(--text-muted); margin-top: 24px; }
+
+@media (max-width: 900px) {
+    .nav-links { display: none; }
+    .about-grid { grid-template-columns: 1fr; }
+    .gallery-grid { grid-template-columns: repeat(2, 1fr); }
+    .team-grid { grid-template-columns: repeat(2, 1fr); }
+    .form-row { grid-template-columns: 1fr; }
+    .hero-stats { gap: 30px; }
+}
+@media (max-width: 580px) {
+    .gallery-grid { grid-template-columns: 1fr; }
+    .team-grid { grid-template-columns: 1fr 1fr; }
+    .contact-form-box { padding: 24px; }
+}
     </style>
 </head>
 
@@ -442,6 +504,7 @@ $filtered = ($active_filter === 'all')
         <li><a href="#about">About</a></li>
         <li><a href="#gallery">Gallery</a></li>
         <li><a href="#events">Events</a></li>
+        <li><a href="#team">Team</a></li>
     </ul>
 </nav>
 
@@ -660,10 +723,102 @@ $filtered = ($active_filter === 'all')
 
 </section>
 
+<!-- TEAM -->
+
+<section id="team">
+    <div class="container">
+        <span class="section-tag">People</span>
+        <h2 class="section-title">Meet the <em>Team</em></h2>
+
+        <div class="team-grid">
+            <?php foreach ($team as $member): ?>
+            <div class="team-card">
+                <div class="team-icon"><?= $member['icon'] ?></div>
+                <div class="team-name"><?= htmlspecialchars($member['name']) ?></div>
+                <div class="team-role"><?= htmlspecialchars($member['role']) ?></div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</section>
+
+<!-- CONTACT -->
+
+<section id="contact">
+    <div class="container">
+        <span class="section-tag">Get In Touch</span>
+        <h2 class="section-title">Join or <em>Contact</em> Us</h2>
+
+        <div class="contact-form-box">
+
+            <?php if ($form_success): ?>
+                <div class="form-success">✓ Message sent! We will get back to you soon.</div>
+            <?php endif; ?>
+
+            <?php if (!empty($form_errors)): ?>
+                <div class="form-errors">
+                    <ul>
+                        <?php foreach ($form_errors as $err): ?>
+                            <li><?= htmlspecialchars($err) ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endif; ?>
+
+            <form method="POST" action="#contact">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="name">Full Name *</label>
+                        <input type="text" id="name" name="name"
+                               value="<?= htmlspecialchars($sticky['name']) ?>"
+                               placeholder="Your name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email *</label>
+                        <input type="email" id="email" name="email"
+                               value="<?= htmlspecialchars($sticky['email']) ?>"
+                               placeholder="your@email.com" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="subject">Subject</label>
+                    <select id="subject" name="subject">
+                        <option value="">Select a topic</option>
+                        <option value="join"     <?= $sticky['subject']==='join'     ? 'selected':'' ?>>Join the Club</option>
+                        <option value="workshop" <?= $sticky['subject']==='workshop' ? 'selected':'' ?>>Workshop Inquiry</option>
+                        <option value="general"  <?= $sticky['subject']==='general'  ? 'selected':'' ?>>General Question</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="message">Message *</label>
+                    <textarea id="message" name="message"
+                              placeholder="Tell us about yourself..."><?= htmlspecialchars($sticky['message']) ?></textarea>
+                </div>
+                <button type="submit" name="contact_submit" class="btn-primary" style="width:100%">
+                    Send Message →
+                </button>
+            </form>
+        </div>
+    </div>
+</section>
+
 <!-- FOOTER -->
 
 <footer>
-    <p>KUET Photography Society</p>
+    <div class="footer-logo">KUET <span>Photography</span> Society</div>
+    <p style="color:var(--text-muted); font-size:0.88rem; margin: 8px auto; max-width:400px;">
+        Capturing moments that last forever at KUET Campus, Khulna.
+    </p>
+    <div class="footer-links">
+        <a href="#hero">Home</a>
+        <a href="#about">About</a>
+        <a href="#gallery">Gallery</a>
+        <a href="#events">Events</a>
+        <a href="#team">Team</a>
+        <a href="#contact">Contact</a>
+    </div>
+    <!-- PHP date() function for dynamic year -->
+    <p class="footer-copy">© <?= date('Y') ?> KUET Photography Society</p>
 </footer>
 
 </body>
