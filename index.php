@@ -1,62 +1,57 @@
 <?php
-// ============================================================
-// KUET PHOTOGRAPHY SOCIETY - index.php
-// PHP handles: contact form, gallery filter, sticky forms
-// ============================================================
+session_start();
+require 'db.php';  // connect to MySQL
 
-// ---------- Contact Form Processing (POST) ----------
+// Load photos from database
+$gallery_items = $pdo->query("SELECT * FROM photos ORDER BY created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
+
+// Load events from database
+$events_raw = $pdo->query("SELECT * FROM events ORDER BY event_date ASC")->fetchAll(PDO::FETCH_ASSOC);
+
+// Format events for display
+$events = [];
+foreach ($events_raw as $ev) {
+    $events[] = [
+        'date'     => date('d M Y', strtotime($ev['event_date'])),
+        'title'    => $ev['title'],
+        'location' => $ev['location'],
+        'spots'    => $ev['spots'],
+    ];
+}
+
+// ADD THIS — was completely missing
+$team = $pdo->query("SELECT * FROM team ORDER BY sort_order ASC")->fetchAll(PDO::FETCH_ASSOC);
+
+// ADD THIS — contact form handling was also missing
 $form_success = false;
 $form_errors  = [];
-$sticky = ['name' => '', 'email' => '', 'subject' => '', 'message' => ''];
+$sticky = ['name'=>'', 'email'=>'', 'subject'=>'', 'message'=>''];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
-    // Sanitize inputs
     $sticky['name']    = htmlspecialchars(trim($_POST['name']    ?? ''));
     $sticky['email']   = htmlspecialchars(trim($_POST['email']   ?? ''));
     $sticky['subject'] = htmlspecialchars(trim($_POST['subject'] ?? ''));
     $sticky['message'] = htmlspecialchars(trim($_POST['message'] ?? ''));
 
-    // Validate
     if (empty($sticky['name']))    $form_errors[] = "Name is required.";
-    if (!filter_var($_POST['email'], FILTER_VALIDATE_EMAIL)) $form_errors[] = "A valid email is required.";
+    if (!filter_var($_POST['email'], FILTER_VALIDATE_EMAIL)) $form_errors[] = "Valid email is required.";
     if (empty($sticky['message'])) $form_errors[] = "Message cannot be empty.";
 
     if (empty($form_errors)) {
-        // In a real app: mail() or save to DB here
+        $stmt = $pdo->prepare(
+            "INSERT INTO messages (name, email, subject, message) VALUES (?,?,?,?)"
+        );
+        $stmt->execute([
+            $sticky['name'],
+            $sticky['email'],
+            $sticky['subject'],
+            $sticky['message']
+        ]);
         $form_success = true;
-        $sticky = ['name' => '', 'email' => '', 'subject' => '', 'message' => ''];
+        $sticky = ['name'=>'','email'=>'','subject'=>'','message'=>''];
     }
 }
 
-// ---------- Gallery Filter (GET) ----------
-$allowed_filters = ['all', 'nature', 'portrait', 'architecture', 'event'];
-$active_filter   = 'all';
-if (isset($_GET['filter']) && in_array($_GET['filter'], $allowed_filters)) {
-    $active_filter = $_GET['filter'];
-}
-
-// Filter gallery
-$filtered = ($active_filter === 'all')
-    ? $gallery_items
-    : array_filter($gallery_items, fn($item) => $item['category'] === $active_filter);
-
-// ---------- Team Members ----------
-$team = [
-    ['name' => 'Farhan Kabir',   'role' => 'President',          'icon' => '📸'],
-    ['name' => 'Sneha Roy',      'role' => 'Vice President',     'icon' => '🎞️'],
-    ['name' => 'Mahmudul Hasan', 'role' => 'Creative Director',  'icon' => '🖼️'],
-    ['name' => 'Lamia Sultana',  'role' => 'Event Coordinator',  'icon' => '🎭'],
-    ['name' => 'Riyad Ahmed',    'role' => 'Tech Lead',          'icon' => '⚙️'],
-    ['name' => 'Disha Nandi',    'role' => 'Media Manager',      'icon' => '📱'],
-];
-
-// ---------- Events ----------
-$events = [
-    ['date' => '15 May 2025', 'title' => 'Street Photography Walk',  'location' => 'Khulna City', 'spots' => 20],
-    ['date' => '22 Jun 2025', 'title' => 'Portrait Workshop',        'location' => 'KUET Campus',  'spots' => 15],
-    ['date' => '10 Jul 2025', 'title' => 'Monsoon Photo Contest',    'location' => 'Online',       'spots' => 50],
-    ['date' => '05 Aug 2025', 'title' => 'Annual Exhibition 2025',   'location' => 'KUET Auditorium', 'spots' => 100],
-];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -878,6 +873,102 @@ $events = [
             .hero-stats { gap: 30px; }
             .contact-form { padding: 24px; }
         }
+
+        /* =============================================
+   3-DOT INFO MENU
+============================================= */
+.info-dots { position: relative; margin-left: 8px; }
+
+.dots-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 1.4rem;
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    padding-bottom: 4px;
+    line-height: 1;
+}
+.dots-btn:hover {
+    background: rgba(139,92,246,0.12);
+    border-color: var(--border-bright);
+    color: var(--text-primary);
+}
+.dots-menu {
+    display: none;
+    position: absolute;
+    top: 48px; right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border-bright);
+    border-radius: 12px;
+    padding: 8px;
+    min-width: 200px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    z-index: 500;
+}
+.dots-menu.open { display: block; }
+.dots-section-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    padding: 6px 12px 4px;
+}
+.dots-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.88rem;
+    border-radius: 7px;
+    transition: all 0.2s;
+}
+.dots-item:hover {
+    background: rgba(139,92,246,0.12);
+    color: var(--text-primary);
+}
+.dots-admin { color: var(--purple-4) !important; }
+.dots-admin:hover { background: rgba(124,58,237,0.15) !important; }
+.dots-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 6px 8px;
+}
+
+/* Floating side button */
+.floating-dots {
+    position: fixed;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 400;
+}
+.floating-btn {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: rgba(124,58,237,0.3);
+    border: 1px solid var(--border-bright);
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: 4px;
+    box-shadow: 0 4px 20px rgba(124,58,237,0.3);
+    transition: all 0.2s;
+}
+.floating-btn:hover {
+    background: rgba(124,58,237,0.5);
+    box-shadow: 0 6px 28px rgba(124,58,237,0.5);
+}
     </style>
 </head>
 <body>
@@ -902,6 +993,28 @@ $events = [
         <li><a href="#team">Team</a></li>
         <li><a href="#contact">Contact</a></li>
     </ul>
+
+    <!-- 3-dot info menu -->
+    <div class="info-dots" id="infoDots">
+        <button class="dots-btn" onclick="toggleInfoMenu()">⋮</button>
+        <div class="dots-menu" id="dotsMenu">
+            <div class="dots-section-label">Navigate</div>
+            <a href="#gallery"  class="dots-item" onclick="closeInfoMenu()">🖼️ Gallery</a>
+            <a href="#events"   class="dots-item" onclick="closeInfoMenu()">📅 Events</a>
+            <a href="#team"     class="dots-item" onclick="closeInfoMenu()">👥 Team</a>
+            <a href="#contact"  class="dots-item" onclick="closeInfoMenu()">✉️ Contact</a>
+            <div class="dots-divider"></div>
+            <div class="dots-section-label">Info</div>
+            <a href="#" class="dots-item" onclick="openModal('termsModal');return false;">📄 Terms & Conditions</a>
+            <a href="#" class="dots-item" onclick="openModal('privacyModal');return false;">🔒 Privacy Policy</a>
+            <div class="dots-divider"></div>
+            <?php if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true): ?>
+                <a href="admin.php" class="dots-item dots-admin">⚙️ Admin Panel</a>
+            <?php else: ?>
+                <a href="adminlogin.php" class="dots-item dots-admin">🔐 Admin Login</a>
+            <?php endif; ?>
+        </div>
+    </div>
 </nav>
 
 <!-- =============================================
@@ -959,7 +1072,7 @@ $events = [
                 </div>
                 <p>
                     KUET Photography Society is the official photography club of Khulna University
-                    of Engineering &amp; Technology. We welcome students of all skill levels who
+                    of Engineering And Technology. We welcome students of all skill levels who
                     share a passion for capturing the world through a lens.
                 </p>
                 <p>
@@ -1023,28 +1136,29 @@ $events = [
     <button class="filter-btn" onclick="filterGallery('event', this)">Events</button>
 </div>
 
-        <!-- Gallery grid — PHP renders cards -->
-        <div class="gallery-grid" id="galleryGrid">
-            <?php if (empty($filtered)): ?>
-                <div class="gallery-empty">
-                    <p>No photos found in this category.</p>
-                </div>
-            <?php else: ?>
-                <?php foreach ($filtered as $item): ?>
-                    <div class="gallery-card" data-category="<?= htmlspecialchars($item['category']) ?>">
-                        <div class="gallery-placeholder">
-                            <span>🖼️</span>
-                            <span style="font-size:0.75rem; color:var(--text-muted);">Add image: <?= htmlspecialchars($item['src']) ?></span>
-                        </div>
-                        <div class="gallery-overlay">
-                            <h3><?= htmlspecialchars($item['title']) ?></h3>
-                            <p>by <?= htmlspecialchars($item['photographer']) ?></p>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </div>
+<div class="gallery-grid" id="galleryGrid">
+<?php if (empty($gallery_items)): ?>
+    <div class="gallery-empty">
+        <p>No photos yet. Add some from the admin panel.</p>
     </div>
+<?php else: ?>
+    <?php foreach ($gallery_items as $item): ?>
+        <div class="gallery-card" data-category="<?= htmlspecialchars($item['category']) ?>">
+            <?php if ($item['filename'] !== 'placeholder' && file_exists('images/' . $item['filename'])): ?>
+                <img src="images/<?= htmlspecialchars($item['filename']) ?>"
+                     alt="<?= htmlspecialchars($item['title']) ?>"
+                     style="width:100%;height:100%;object-fit:cover;">
+            <?php else: ?>
+                <div class="gallery-placeholder"><span>🖼️</span></div>
+            <?php endif; ?>
+            <div class="gallery-overlay">
+                <h3><?= htmlspecialchars($item['title']) ?></h3>
+                <p>by <?= htmlspecialchars($item['photographer']) ?></p>
+            </div>
+        </div>
+    <?php endforeach; ?>
+<?php endif; ?>
+</div><!-- end gallery-grid -->
 </section>
 
 <!-- =============================================
@@ -1096,13 +1210,22 @@ $events = [
         </div>
 
         <div class="team-grid">
-            <?php foreach ($team as $member): ?>
-            <div class="team-card">
-                <div class="team-icon"><?= $member['icon'] ?></div>
-                <div class="team-name"><?= htmlspecialchars($member['name']) ?></div>
-                <div class="team-role"><?= htmlspecialchars($member['role']) ?></div>
-            </div>
-            <?php endforeach; ?>
+          <?php foreach ($team as $member): ?>
+<div class="team-card">
+    <?php
+    $tp = 'images/team/' . $member['photo'];
+    if (isset($member['photo']) && $member['photo'] !== 'placeholder' && file_exists($tp)): ?>
+        <img src="<?= $tp ?>"
+             style="width:80px;height:80px;border-radius:50%;object-fit:cover;
+                    margin:0 auto 16px;display:block;
+                    border:2px solid var(--border-bright);">
+    <?php else: ?>
+        <div class="team-icon"><?= $member['icon'] ?></div>
+    <?php endif; ?>
+    <div class="team-name"><?= htmlspecialchars($member['name']) ?></div>
+    <div class="team-role"><?= htmlspecialchars($member['role']) ?></div>
+</div>
+<?php endforeach; ?>
         </div>
     </div>
 </section>
@@ -1238,6 +1361,60 @@ $events = [
     </div>
 </footer>
 
+
+<!-- Floating 3-dot button -->
+<div class="floating-dots">
+    <button class="floating-btn" onclick="toggleInfoMenu()">⋮</button>
+</div>
+
+<!-- Terms Modal -->
+<div id="termsModal" style="display:none;position:fixed;inset:0;
+     background:rgba(0,0,0,0.7);z-index:1000;align-items:center;
+     justify-content:center;padding:24px;">
+    <div style="background:var(--bg-card);border:1px solid var(--border-bright);
+                border-radius:16px;padding:36px;max-width:560px;width:100%;
+                max-height:80vh;overflow-y:auto;">
+        <h2 style="font-family:var(--font-display);font-size:1.8rem;margin-bottom:16px;">
+            Terms and Conditions
+        </h2>
+        <p style="color:var(--text-secondary);font-size:0.9rem;line-height:1.8;">
+            By using this website, you agree that all photos displayed are the property of
+            KUET Photography Society and its members. Reproduction of any content without
+            written permission is prohibited. Membership is open to all KUET students.
+            The club reserves the right to use submitted photos for promotional purposes.
+        </p>
+        <button onclick="closeModal('termsModal')"
+                style="margin-top:24px;padding:10px 24px;background:var(--purple-2);
+                       color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:0.9rem;">
+            Close
+        </button>
+    </div>
+</div>
+
+<!-- Privacy Modal -->
+<div id="privacyModal" style="display:none;position:fixed;inset:0;
+     background:rgba(0,0,0,0.7);z-index:1000;align-items:center;
+     justify-content:center;padding:24px;">
+    <div style="background:var(--bg-card);border:1px solid var(--border-bright);
+                border-radius:16px;padding:36px;max-width:560px;width:100%;
+                max-height:80vh;overflow-y:auto;">
+        <h2 style="font-family:var(--font-display);font-size:1.8rem;margin-bottom:16px;">
+            Privacy Policy
+        </h2>
+        <p style="color:var(--text-secondary);font-size:0.9rem;line-height:1.8;">
+            KUET Photography Society collects only the information you provide through
+            the contact form (name, email, message). This information is used solely
+            to respond to your inquiry and is never shared with third parties.
+            We do not use cookies for tracking purposes.
+        </p>
+        <button onclick="closeModal('privacyModal')"
+                style="margin-top:24px;padding:10px 24px;background:var(--purple-2);
+                       color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:0.9rem;">
+            Close
+        </button>
+    </div>
+</div>
+
 <!-- =================
      JAVASCRIPT — Hamburger + Client-side gallery filter
 ============================================= -->
@@ -1286,6 +1463,40 @@ function filterGallery(category, clickedBtn) {
         el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
         observer.observe(el);
     });
+
+    // 3-dot info menu toggle
+function toggleInfoMenu() {
+    document.getElementById('dotsMenu').classList.toggle('open');
+}
+function closeInfoMenu() {
+    document.getElementById('dotsMenu').classList.remove('open');
+}
+// Close when clicking outside
+document.addEventListener('click', function(e) {
+    const dots = document.getElementById('infoDots');
+    if (dots && !dots.contains(e.target)) {
+        const floatingBtn = document.querySelector('.floating-dots');
+        if (floatingBtn && !floatingBtn.contains(e.target)) {
+            document.getElementById('dotsMenu').classList.remove('open');
+        }
+    }
+});
+
+// Modal open/close
+function openModal(id) {
+    const m = document.getElementById(id);
+    m.style.display = 'flex';
+    closeInfoMenu();
+}
+function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+}
+// Close modal on backdrop click
+document.querySelectorAll('#termsModal, #privacyModal').forEach(modal => {
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) closeModal(this.id);
+    });
+});
 </script>
 
 </body>
