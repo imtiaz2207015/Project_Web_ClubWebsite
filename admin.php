@@ -9,7 +9,7 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
 require 'db.php';
 
 // Active tab
-$tab   = in_array($_GET['tab'] ?? '', ['photos','events','team']) ? $_GET['tab'] : 'photos';
+$tab = in_array($_GET['tab'] ?? '', ['photos','events','team','messages']) ? $_GET['tab'] : 'photos';
 $flash = htmlspecialchars($_GET['msg'] ?? '');
 
 // ════════════════════════════════════════
@@ -57,8 +57,35 @@ if (isset($_GET['edit_photo'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_photo'])) {
-    $pdo->prepare("UPDATE photos SET title=?,photographer=?,category=? WHERE id=?")
-        ->execute([trim($_POST['title']), trim($_POST['photographer']), $_POST['category'], (int)$_POST['photo_id']]);
+    $id           = (int)$_POST['photo_id'];
+    $title        = trim($_POST['title']);
+    $photographer = trim($_POST['photographer']);
+    $category     = $_POST['category'];
+
+    if (!empty($_FILES['photo']['name'])) {
+        $ext     = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
+        $allowed = ['jpg','jpeg','png','webp'];
+        if (in_array($ext, $allowed)) {
+            // Delete old file
+            $old = $pdo->prepare("SELECT filename FROM photos WHERE id=?");
+            $old->execute([$id]);
+            $oldfile = $old->fetchColumn();
+            if ($oldfile && $oldfile !== 'placeholder' && file_exists("images/$oldfile")) {
+                unlink("images/$oldfile");
+            }
+            if (!is_dir('images')) mkdir('images', 0755, true);
+            $newfile = uniqid('photo_') . '.' . $ext;
+            move_uploaded_file($_FILES['photo']['tmp_name'], "images/$newfile");
+            $pdo->prepare("UPDATE photos SET title=?,photographer=?,category=?,filename=? WHERE id=?")
+                ->execute([$title, $photographer, $category, $newfile, $id]);
+        } else {
+            $pdo->prepare("UPDATE photos SET title=?,photographer=?,category=? WHERE id=?")
+                ->execute([$title, $photographer, $category, $id]);
+        }
+    } else {
+        $pdo->prepare("UPDATE photos SET title=?,photographer=?,category=? WHERE id=?")
+            ->execute([$title, $photographer, $category, $id]);
+    }
     header("Location: admin.php?tab=photos&msg=Photo+updated");
     exit;
 }
@@ -176,11 +203,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_team'])) {
 }
 
 // ════════════════════════════════════════
+// MESSAGES — READ + DELETE
+// ════════════════════════════════════════
+
+if (isset($_GET['read_msg'])) {
+    $pdo->prepare("UPDATE messages SET is_read=1 WHERE id=?")
+        ->execute([(int)$_GET['read_msg']]);
+    header("Location: admin.php?tab=messages");
+    exit;
+}
+
+if (isset($_GET['delete_msg'])) {
+    $pdo->prepare("DELETE FROM messages WHERE id=?")
+        ->execute([(int)$_GET['delete_msg']]);
+    header("Location: admin.php?tab=messages&msg=Message+deleted");
+    exit;
+}
+
+// ════════════════════════════════════════
 // FETCH ALL DATA
 // ════════════════════════════════════════
-$photos = $pdo->query("SELECT * FROM photos ORDER BY created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
-$events = $pdo->query("SELECT * FROM events ORDER BY event_date ASC")->fetchAll(PDO::FETCH_ASSOC);
-$team   = $pdo->query("SELECT * FROM team ORDER BY sort_order ASC")->fetchAll(PDO::FETCH_ASSOC);
+$photos   = $pdo->query("SELECT * FROM photos ORDER BY created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
+$events   = $pdo->query("SELECT * FROM events ORDER BY event_date ASC")->fetchAll(PDO::FETCH_ASSOC);
+$team     = $pdo->query("SELECT * FROM team ORDER BY sort_order ASC")->fetchAll(PDO::FETCH_ASSOC);
+$messages = $pdo->query("SELECT * FROM messages ORDER BY created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -217,7 +263,7 @@ $team   = $pdo->query("SELECT * FROM team ORDER BY sort_order ASC")->fetchAll(PD
             flex-direction: column;
             padding: 24px 14px;
             position: fixed;
-            top: 0; left: 0; bottom: 0;
+            top: 70px; left: 0; bottom: 0;
             z-index: 50;
         }
 
@@ -335,8 +381,9 @@ $team   = $pdo->query("SELECT * FROM team ORDER BY sort_order ASC")->fetchAll(PD
             margin-left: 240px;
             flex: 1;
             padding: 36px 40px;
+            padding-top: 110px;
             min-height: 100vh;
-        }
+}
 
         /* Flash message */
         .flash {
@@ -513,6 +560,8 @@ $team   = $pdo->query("SELECT * FROM team ORDER BY sort_order ASC")->fetchAll(PD
             align-items: center;
             justify-content: center;
             font-size: 1.4rem;
+            overflow: hidden;
+            flex-shrink: 0;
         }
         .badge-cat {
             padding: 3px 10px;
@@ -569,12 +618,62 @@ $team   = $pdo->query("SELECT * FROM team ORDER BY sort_order ASC")->fetchAll(PD
 <body>
 
 <!-- ══════════════════════════════════════
+     TOP NAVBAR
+══════════════════════════════════════ -->
+
+<nav style="
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 70px;
+    background: rgba(7, 5, 15, 0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(138, 99, 255, 0.18);
+    display: flex;
+    align-items: center;
+    padding: 0 40px;
+    z-index: 100;
+">
+    <a href="index.php" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
+        <div style="
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            overflow: hidden;
+            background: linear-gradient(135deg, #7c3aed, #e879f9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        ">
+            <?php if (file_exists(__DIR__ . '/Mainlogo.png')): ?>
+                <img src="Mainlogo.png" style="width:100%;height:100%;object-fit:cover;">
+            <?php else: ?>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M23 19C23 20.1 22.1 21 21 21H3C1.9 21 1 20.1 1 19V8C1 6.9 1.9 6 3 6H7L9 3H15L17 6H21C22.1 6 23 6.9 23 8V19Z"
+                          stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="12" cy="13" r="4" stroke="white" stroke-width="1.5"/>
+                    <circle cx="18" cy="9" r="1.5" fill="white"/>
+                </svg>
+            <?php endif; ?>
+        </div>
+        <span style="
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #f1eeff;
+            letter-spacing: 0.04em;
+        ">KUET <span style="color:#a78bfa;">Photo</span></span>
+    </a>
+</nav>
+
+
+<!-- ══════════════════════════════════════
      SIDEBAR
 ══════════════════════════════════════ -->
 <aside class="sidebar">
 
     <div class="sidebar-logo">
-        <h2>KUET <span>Admin</span></h2>
+        <h2>CLUB <span>Admin</span></h2>
         <p>Photography Society</p>
     </div>
 
@@ -595,6 +694,19 @@ $team   = $pdo->query("SELECT * FROM team ORDER BY sort_order ASC")->fetchAll(PD
         <a href="admin.php?tab=team"
            class="nav-item <?= $tab === 'team' ? 'active' : '' ?>">
             <span class="nav-icon">👥</span> Team
+        </a>
+
+        <a href="admin.php?tab=messages"
+            class="nav-item <?= $tab === 'messages' ? 'active' : '' ?>">
+            <span class="nav-icon">✉️</span> Messages
+            <?php
+             $unread = $pdo->query("SELECT COUNT(*) FROM messages WHERE is_read=0")->fetchColumn();
+             if ($unread > 0): ?>
+                 <span style="margin-left:auto;background:var(--accent);color:#fff;
+                     font-size:0.65rem;padding:2px 7px;border-radius:50px;">
+            <?= $unread ?>
+                 </span>
+           <?php endif; ?>
         </a>
     </nav>
 
@@ -646,39 +758,63 @@ $team   = $pdo->query("SELECT * FROM team ORDER BY sort_order ASC")->fetchAll(PD
             <div class="form-card">
                 <div class="edit-box">
                     <h3>✏️ Editing: <?= htmlspecialchars($edit_photo['title']) ?></h3>
-                    <form method="POST">
-                        <input type="hidden" name="photo_id" value="<?= $edit_photo['id'] ?>">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Title</label>
-                                <input type="text" name="title"
-                                       value="<?= htmlspecialchars($edit_photo['title']) ?>" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Photographer</label>
-                                <input type="text" name="photographer"
-                                       value="<?= htmlspecialchars($edit_photo['photographer']) ?>" required>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Category</label>
-                            <select name="category">
-                                <?php foreach (['nature','portrait','architecture','event'] as $c): ?>
-                                    <option value="<?= $c ?>"
-                                        <?= $edit_photo['category'] === $c ? 'selected' : '' ?>>
-                                        <?= ucfirst($c) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <button type="submit" name="update_photo" class="btn-update">
-                            Save Changes
-                        </button>
-                        <a href="admin.php?tab=photos"
-                           style="margin-left:10px;font-size:0.82rem;color:var(--muted);text-decoration:none;">
-                            Cancel
-                        </a>
-                    </form>
+                   <form method="POST" enctype="multipart/form-data">
+    <input type="hidden" name="photo_id" value="<?= $edit_photo['id'] ?>">
+    <div class="form-row">
+        <div class="form-group">
+            <label>Title</label>
+            <input type="text" name="title"
+                   value="<?= htmlspecialchars($edit_photo['title']) ?>" required>
+        </div>
+        <div class="form-group">
+            <label>Photographer</label>
+            <input type="text" name="photographer"
+                   value="<?= htmlspecialchars($edit_photo['photographer']) ?>" required>
+        </div>
+    </div>
+    <div class="form-group">
+        <label>Category</label>
+        <select name="category">
+            <?php foreach (['nature','portrait','architecture','event'] as $c): ?>
+                <option value="<?= $c ?>"
+                    <?= $edit_photo['category'] === $c ? 'selected' : '' ?>>
+                    <?= ucfirst($c) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+    </div>
+    <!-- Current image preview -->
+    <div class="form-group">
+        <label>Current Image</label>
+        <?php $fp = 'images/' . $edit_photo['filename'];
+        if ($edit_photo['filename'] !== 'placeholder' && file_exists($fp)): ?>
+           <div style="width:120px;height:90px;border-radius:8px;overflow:hidden;
+            margin-bottom:10px;border:1px solid var(--border-bright);">
+    <img src="<?= $fp ?>"
+         style="width:100%;height:100%;object-fit:cover;display:block;">
+</div>
+        <?php else: ?>
+    <div style="width:120px;height:90px;border-radius:8px;
+                background:rgba(124,58,237,0.1);
+                border:1px dashed var(--border-bright);
+                display:flex;align-items:center;justify-content:center;
+                margin-bottom:10px;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M23 19C23 20.1 22.1 21 21 21H3C1.9 21 1 20.1 1 19V8C1 6.9 1.9 6 3 6H7L9 3H15L17 6H21C22.1 6 23 6.9 23 8V19Z"
+                  stroke="var(--pl)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="12" cy="13" r="4" stroke="var(--pl)" stroke-width="1.5"/>
+        </svg>
+    </div>
+<?php endif; ?>
+        <label>Replace Image (leave empty to keep current)</label>
+        <input type="file" name="photo" accept="image/*">
+    </div>
+    <button type="submit" name="update_photo" class="btn-update">Save Changes</button>
+    <a href="admin.php?tab=photos"
+       style="margin-left:10px;font-size:0.82rem;color:var(--muted);text-decoration:none;">
+        Cancel
+    </a>
+</form>
                 </div>
             </div>
             <?php endif; ?>
@@ -737,10 +873,23 @@ $team   = $pdo->query("SELECT * FROM team ORDER BY sort_order ASC")->fetchAll(PD
                             <td>
                                 <?php $fp = 'images/' . $p['filename'];
                                 if ($p['filename'] !== 'placeholder' && file_exists($fp)): ?>
-                                    <img src="<?= $fp ?>" class="thumb" alt="">
+                                   <div style="width:44px;height:44px;border-radius:8px;overflow:hidden;flex-shrink:0;">
+                                  <img src="<?= $fp ?>"
+                                   style="width:100%;height:100%;object-fit:cover;display:block;"
+                                   alt="">
+                                  </div>
                                 <?php else: ?>
-                                    <div class="thumb">🖼️</div>
-                                <?php endif; ?>
+                               <div style="width:44px;height:44px;border-radius:8px;
+                                background:rgba(124,58,237,0.15);
+                                 border:1px solid var(--border);
+                                display:flex;align-items:center;justify-content:center;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                <path d="M23 19C23 20.1 22.1 21 21 21H3C1.9 21 1 20.1 1 19V8C1 6.9 1.9 6 3 6H7L9 3H15L17 6H21C22.1 6 23 6.9 23 8V19Z"
+                                stroke="var(--pl)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                <circle cx="12" cy="13" r="4" stroke="var(--pl)" stroke-width="1.5"/>
+                                </svg>
+                              </div>
+<?php endif; ?>
                             </td>
                             <td>
                                 <div style="font-weight:500"><?= htmlspecialchars($p['title']) ?></div>
@@ -926,11 +1075,24 @@ $team   = $pdo->query("SELECT * FROM team ORDER BY sort_order ASC")->fetchAll(PD
                 <label>New Profile Photo (leave empty to keep current)</label>
                 <input type="file" name="tm_photo" accept="image/*">
                 <!-- Show current photo -->
-                <?php
-                $tp = 'images/team/' . $edit_team['photo'];
-                if ($edit_team['photo'] !== 'placeholder' && file_exists($tp)): ?>
-                    <img src="<?= $tp ?>" style="width:50px;height:50px;border-radius:50%;margin-top:8px;object-fit:cover;">
-                <?php endif; ?>
+               <?php
+$tp = 'images/team/' . ($edit_team['photo'] ?? '');
+$tp_full = __DIR__ . '/' . $tp;
+if (!empty($edit_team['photo']) && $edit_team['photo'] !== 'placeholder' && file_exists($tp_full)): ?>
+  <div style="width:60px;height:60px;border-radius:50%;overflow:hidden;
+            margin-top:8px;border:2px solid var(--border-bright);">
+    <img src="<?= $tp ?>"
+         style="width:100%;height:100%;object-fit:cover;display:block;">
+</div>
+<?php else: ?>
+    <div style="width:60px;height:60px;border-radius:50%;
+                background:linear-gradient(135deg,var(--purple),var(--accent));
+                display:flex;align-items:center;justify-content:center;
+                color:#fff;font-size:1.2rem;font-weight:600;
+                margin-top:8px;">
+        <?= strtoupper(substr($edit_team['name'], 0, 1)) ?>
+    </div>
+<?php endif; ?>
             </div>
             <div class="form-group">
                 <label>Sort Order</label>
@@ -997,14 +1159,18 @@ $team   = $pdo->query("SELECT * FROM team ORDER BY sort_order ASC")->fetchAll(PD
                                 <?php
                                 $tp = 'images/team/' . $m['photo'];
                                 if ($m['photo'] !== 'placeholder' && file_exists($tp)): ?>
-                                    <img src="<?= $tp ?>" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">
-                                <?php else: ?>
-                                   <div style="font-size:1.6rem;width:44px;height:44px;display:flex;
-                                   align-items:center;justify-content:center;background:var(--deep);
-                                   border-radius:50%;">
-                                   📸
-                                  </div>
-                                <?php endif; ?>
+                                  <div style="width:44px;height:44px;border-radius:50%;overflow:hidden;flex-shrink:0;">
+                                  <img src="<?= $tp ?>"
+                                  style="width:100%;height:100%;object-fit:cover;display:block;">
+                                </div>
+                               <?php else: ?>
+    <div style="width:44px;height:44px;border-radius:50%;
+                background:linear-gradient(135deg,var(--purple),var(--accent));
+                display:flex;align-items:center;justify-content:center;
+                color:#fff;font-size:1rem;font-weight:600;">
+        <?= strtoupper(substr($m['name'], 0, 1)) ?>
+    </div>
+<?php endif; ?>
                             </td>
                             <td style="font-weight:500"><?= htmlspecialchars($m['name']) ?></td>
                             <td style="color:var(--muted)"><?= htmlspecialchars($m['role']) ?></td>
@@ -1025,6 +1191,104 @@ $team   = $pdo->query("SELECT * FROM team ORDER BY sort_order ASC")->fetchAll(PD
             </div>
 
         </div><!-- end section-block -->
+
+    <!-- ════════════════
+          MESSAGES TAB
+      ════════════════ -->
+      <?php elseif ($tab === 'messages'): ?>
+        
+
+    <div class="page-header">
+        <h1>Contact <span>Messages</span></h1>
+        <p>Messages submitted through the contact form on the website.</p>
+    </div>
+
+    <div class="section-block" style="max-width:100%;">
+        <div class="table-card">
+            <h2>
+                All Messages (<?= count($messages) ?>)
+                <?php
+                $unread_count = $pdo->query("SELECT COUNT(*) FROM messages WHERE is_read=0")->fetchColumn();
+                if ($unread_count > 0): ?>
+                    <span style="margin-left:8px;background:var(--accent);color:#fff;
+                                 font-size:0.7rem;padding:3px 10px;border-radius:50px;
+                                 vertical-align:middle;">
+                        <?= $unread_count ?> unread
+                    </span>
+                <?php endif; ?>
+            </h2>
+
+            <?php if (empty($messages)): ?>
+                <div class="empty-cell">
+                    No messages yet — they appear here when someone submits the contact form.
+                </div>
+            <?php else: ?>
+            <table>
+                <thead>
+                    <tr>
+                        <th>From</th>
+                        <th>Email</th>
+                        <th>Subject</th>
+                        <th>Message</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($messages as $msg): ?>
+                <tr style="<?= !$msg['is_read'] ? 'background:rgba(232,121,249,0.04);' : '' ?>">
+                    <td>
+                        <div style="font-weight:500;display:flex;align-items:center;gap:6px;">
+                            <?php if (!$msg['is_read']): ?>
+                                <span style="width:7px;height:7px;border-radius:50%;
+                                             background:var(--accent);display:inline-block;
+                                             flex-shrink:0;"></span>
+                            <?php endif; ?>
+                            <?= htmlspecialchars($msg['name']) ?>
+                        </div>
+                    </td>
+                    <td style="color:var(--muted);font-size:0.82rem;">
+                        <?= htmlspecialchars($msg['email']) ?>
+                    </td>
+                    <td>
+                        <span class="badge-cat">
+                            <?= htmlspecialchars($msg['subject'] ?: '—') ?>
+                        </span>
+                    </td>
+                    <td style="max-width:300px;">
+                        <div style="color:var(--muted);font-size:0.85rem;
+                                    white-space:nowrap;overflow:hidden;
+                                    text-overflow:ellipsis;max-width:280px;">
+                            <?= htmlspecialchars($msg['message']) ?>
+                        </div>
+                    </td>
+                    <td style="color:var(--muted);font-size:0.78rem;white-space:nowrap;">
+                        <?= date('d M Y', strtotime($msg['created_at'])) ?><br>
+                        <span style="font-size:0.72rem;">
+                            <?= date('h:i A', strtotime($msg['created_at'])) ?>
+                        </span>
+                    </td>
+                    <td>
+                        <div class="actions">
+                            <?php if (!$msg['is_read']): ?>
+                                <a href="?tab=messages&read_msg=<?= $msg['id'] ?>"
+                                   class="btn-e"
+                                   style="color:var(--green);border-color:rgba(34,197,94,0.3);">
+                                   ✓ Read
+                                </a>
+                            <?php endif; ?>
+                            <a href="?tab=messages&delete_msg=<?= $msg['id'] ?>"
+                               onclick="return confirm('Delete this message?')"
+                               class="btn-d">Delete</a>
+                        </div>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php endif; ?>
+        </div>
+    </div>
 
     <?php endif; ?>
 

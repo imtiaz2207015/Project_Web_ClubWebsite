@@ -154,12 +154,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
             gap: 10px;
             text-decoration: none;
         }
-        .nav-logo-icon {
-            width: 36px; height: 36px;
+        .nav-logo-icon{
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden; /* important */
             background: linear-gradient(135deg, var(--purple-2), var(--accent));
-            display: flex; align-items: center; justify-content: center;
-            font-size: 16px;
+       }
+
+        .logo-img{
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* makes it fill circle properly */
         }
         .nav-logo-text {
             font-family: var(--font-display);
@@ -942,7 +951,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
     margin: 6px 8px;
 }
 
-/* Floating side button */
+/* =============================================
+   CUSTOM CURSOR
+============================================= */
+*, *::before, *::after { cursor: none !important; }
+html, body { cursor: none !important; }
+
+.cursor-dot {
+    width: 10px; height: 10px;
+    background: var(--accent);
+    border-radius: 50%;
+    position: fixed;
+    top: -100px; left: -100px;
+    pointer-events: none;
+    z-index: 999999;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 8px var(--accent), 0 0 20px var(--accent);
+    transition: width 0.15s, height 0.15s, background 0.15s;
+}
+.cursor-ring {
+    width: 38px; height: 38px;
+    border: 1.5px solid rgba(232,121,249,0.6);
+    border-radius: 50%;
+    position: fixed;
+    top: -100px; left: -100px;
+    pointer-events: none;
+    z-index: 999998;
+    transform: translate(-50%, -50%);
+    transition: width 0.3s, height 0.3s, border-color 0.3s;
+}
+.cursor-trail {
+    position: fixed;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 999997;
+    transform: translate(-50%, -50%);
+    background: transparent;
+    border: 1.5px solid rgba(139,92,246,0.6);
+    animation: rippleFade 0.8s ease-out forwards;
+}
+@keyframes rippleFade {
+    0%   { width: 8px;  height: 8px;  opacity: 1;   border-color: rgba(232,121,249,0.8); }
+    100% { width: 70px; height: 70px; opacity: 0;   border-color: rgba(139,92,246,0);   }
+}
+.cursor-dot.hovering {
+    width: 14px; height: 14px;
+    background: var(--purple-4);
+    box-shadow: 0 0 16px var(--purple-3), 0 0 32px var(--purple-3);
+}
+.cursor-ring.hovering {
+    width: 56px; height: 56px;
+    border-color: rgba(167,139,250,0.8);
+}
+.cursor-dot.clicking {
+    width: 16px; height: 16px;
+    background: #fff;
+    box-shadow: 0 0 20px #fff, 0 0 40px var(--accent);
+}
+@media (hover: none) {
+    .cursor-dot, .cursor-ring { display: none; }
+    *, *::before, *::after { cursor: auto !important; }
+    html, body { cursor: auto !important; }
+}
+
+/* =============================================
+   FLOATING DOTS BUTTON
+============================================= */
 .floating-dots {
     position: fixed;
     right: 20px;
@@ -971,14 +1045,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
 }
     </style>
 </head>
-<body>
+<body style="cursor:none;">
 
-<!-- =============================================
+<div id="cursorDot"  class="cursor-dot"></div>
+<div id="cursorRing" class="cursor-ring"></div>
+<!-- ========================================
      NAVIGATION
 ============================================= -->
 <nav id="navbar">
     <a href="#hero" class="nav-logo">
-        <div class="nav-logo-icon">📷</div>
+        <div class="nav-logo-icon">
+        <img src="Mainlogo.png" alt="KUET Logo" class="logo-img">
+        </div>
         <span class="nav-logo-text">KUET <span>Photo</span></span>
     </a>
 
@@ -1127,13 +1205,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
         </div>
 
 
-
-<div class="gallery-filters">
-    <button class="filter-btn active" onclick="filterGallery('all', this)">All</button>
-    <button class="filter-btn" onclick="filterGallery('nature', this)">Nature</button>
-    <button class="filter-btn" onclick="filterGallery('portrait', this)">Portrait</button>
-    <button class="filter-btn" onclick="filterGallery('architecture', this)">Architecture</button>
-    <button class="filter-btn" onclick="filterGallery('event', this)">Events</button>
+        <div class="gallery-filters">
+            <button class="filter-btn active" onclick="filterGallery('all', this)">All</button>
+            <button class="filter-btn" onclick="filterGallery('nature', this)">Nature</button>
+            <button class="filter-btn" onclick="filterGallery('portrait', this)">Portrait</button>
+            <button class="filter-btn" onclick="filterGallery('architecture', this)">Architecture</button>
+            <button class="filter-btn" onclick="filterGallery('event', this)">Events</button>
 </div>
 
 <div class="gallery-grid" id="galleryGrid">
@@ -1142,15 +1219,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
         <p>No photos yet. Add some from the admin panel.</p>
     </div>
 <?php else: ?>
-    <?php foreach ($gallery_items as $item): ?>
-        <div class="gallery-card" data-category="<?= htmlspecialchars($item['category']) ?>">
-            <?php if ($item['filename'] !== 'placeholder' && file_exists('images/' . $item['filename'])): ?>
-                <img src="images/<?= htmlspecialchars($item['filename']) ?>"
-                     alt="<?= htmlspecialchars($item['title']) ?>"
-                     style="width:100%;height:100%;object-fit:cover;">
-            <?php else: ?>
-                <div class="gallery-placeholder"><span>🖼️</span></div>
-            <?php endif; ?>
+   <?php foreach ($gallery_items as $item): ?>
+    <div class="gallery-card" data-category="<?= htmlspecialchars($item['category']) ?>">
+        <?php
+        $img_path      = 'images/' . $item['filename'];
+        $img_path_full = __DIR__ . '/' . $img_path;
+        if ($item['filename'] !== 'placeholder' && file_exists($img_path_full)):
+        ?>
+          <img src="images/<?= htmlspecialchars($item['filename']) ?>"
+     alt="<?= htmlspecialchars($item['title']) ?>"
+     style="width:100%;height:100%;object-fit:cover;
+            position:absolute;top:0;left:0;">
+       <?php else: ?>
+    <div class="gallery-placeholder">
+        <div style="width:40px;height:40px;border-radius:50%;
+                    background:rgba(124,58,237,0.2);
+                    border:1px solid var(--border-bright);
+                    display:flex;align-items:center;justify-content:center;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M23 19C23 20.1 22.1 21 21 21H3C1.9 21 1 20.1 1 19V8C1 6.9 1.9 6 3 6H7L9 3H15L17 6H21C22.1 6 23 6.9 23 8V19Z"
+                      stroke="var(--purple-4)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="12" cy="13" r="4" stroke="var(--purple-4)" stroke-width="1.5"/>
+            </svg>
+        </div>
+        <span style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;">No image</span>
+    </div>
+<?php endif; ?>
             <div class="gallery-overlay">
                 <h3><?= htmlspecialchars($item['title']) ?></h3>
                 <p>by <?= htmlspecialchars($item['photographer']) ?></p>
@@ -1159,6 +1253,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
     <?php endforeach; ?>
 <?php endif; ?>
 </div><!-- end gallery-grid -->
+</div><!-- end container -->
 </section>
 
 <!-- =============================================
@@ -1210,18 +1305,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
         </div>
 
         <div class="team-grid">
-          <?php foreach ($team as $member): ?>
+         <?php foreach ($team as $member): ?>
 <div class="team-card">
     <?php
-    $tp = 'images/team/' . $member['photo'];
-    if (isset($member['photo']) && $member['photo'] !== 'placeholder' && file_exists($tp)): ?>
+    $tp      = 'images/team/' . ($member['photo'] ?? '');
+    $tp_full = __DIR__ . '/' . $tp;
+    if (!empty($member['photo']) && $member['photo'] !== 'placeholder' && file_exists($tp_full)):
+    ?>
         <img src="<?= $tp ?>"
              style="width:80px;height:80px;border-radius:50%;object-fit:cover;
                     margin:0 auto 16px;display:block;
                     border:2px solid var(--border-bright);">
     <?php else: ?>
-        <div class="team-icon"><?= $member['icon'] ?></div>
-    <?php endif; ?>
+    <div class="team-icon"
+         style="background:linear-gradient(135deg,var(--purple-2),var(--accent));
+                color:#fff;font-size:1.4rem;font-weight:600;
+                font-family:var(--font-display);">
+        <?= strtoupper(substr($member['name'], 0, 1)) ?>
+    </div>
+<?php endif; ?>
     <div class="team-name"><?= htmlspecialchars($member['name']) ?></div>
     <div class="team-role"><?= htmlspecialchars($member['role']) ?></div>
 </div>
@@ -1361,13 +1463,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
     </div>
 </footer>
 
-
-<!-- Floating 3-dot button -->
-<div class="floating-dots">
-    <button class="floating-btn" onclick="toggleInfoMenu()">⋮</button>
-</div>
-
-<!-- Terms Modal -->
+<!-- =================
+     MODALS
+ -->
 <div id="termsModal" style="display:none;position:fixed;inset:0;
      background:rgba(0,0,0,0.7);z-index:1000;align-items:center;
      justify-content:center;padding:24px;">
@@ -1424,30 +1522,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
     const navLinks  = document.getElementById('navLinks');
     hamburger.addEventListener('click', () => navLinks.classList.toggle('open'));
 
-    // Client-side gallery filter (no reload — works alongside PHP filter)
-// Gallery filter — pure JS, no page reload, no scroll jump
-function filterGallery(category, clickedBtn) {
-    // Update active button style
-    document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-    clickedBtn.classList.add('active');
+    // Gallery filter
+    function filterGallery(category, clickedBtn) {
+        document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+        clickedBtn.classList.add('active');
+        document.querySelectorAll('.gallery-card').forEach(card => {
+            if (category === 'all' || card.dataset.category === category) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
 
-    // Show/hide cards instantly — no scroll, no reload
-    document.querySelectorAll('.gallery-card').forEach(card => {
-        if (category === 'all' || card.dataset.category === category) {
-            card.style.display = 'block';
-        } else {
-            card.style.display = 'none';
-        }
-    });
-}
-
-    // Smooth navbar background on scroll
+    // Navbar shadow on scroll
     window.addEventListener('scroll', () => {
         const nav = document.getElementById('navbar');
         nav.style.boxShadow = window.scrollY > 20 ? '0 4px 30px rgba(0,0,0,0.5)' : 'none';
     });
 
-    // Scroll reveal — simple fade-in as elements enter view
+    // Scroll reveal
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
@@ -1464,39 +1558,120 @@ function filterGallery(category, clickedBtn) {
         observer.observe(el);
     });
 
-    // 3-dot info menu toggle
-function toggleInfoMenu() {
-    document.getElementById('dotsMenu').classList.toggle('open');
-}
-function closeInfoMenu() {
-    document.getElementById('dotsMenu').classList.remove('open');
-}
-// Close when clicking outside
-document.addEventListener('click', function(e) {
-    const dots = document.getElementById('infoDots');
-    if (dots && !dots.contains(e.target)) {
-        const floatingBtn = document.querySelector('.floating-dots');
-        if (floatingBtn && !floatingBtn.contains(e.target)) {
-            document.getElementById('dotsMenu').classList.remove('open');
-        }
+    // 3-dot menu
+    function toggleInfoMenu() {
+        document.getElementById('dotsMenu').classList.toggle('open');
     }
-});
-
-// Modal open/close
-function openModal(id) {
-    const m = document.getElementById(id);
-    m.style.display = 'flex';
-    closeInfoMenu();
-}
-function closeModal(id) {
-    document.getElementById(id).style.display = 'none';
-}
-// Close modal on backdrop click
-document.querySelectorAll('#termsModal, #privacyModal').forEach(modal => {
-    modal.addEventListener('click', function(e) {
-        if (e.target === this) closeModal(this.id);
+    function closeInfoMenu() {
+        document.getElementById('dotsMenu').classList.remove('open');
+    }
+    document.addEventListener('click', function(e) {
+        const dots = document.getElementById('infoDots');
+        if (dots && !dots.contains(e.target)) {
+            const floatingBtn = document.querySelector('.floating-dots');
+            if (floatingBtn && !floatingBtn.contains(e.target)) {
+                document.getElementById('dotsMenu').classList.remove('open');
+            }
+        }
     });
-});
+
+    // Modals
+    function openModal(id) {
+        document.getElementById(id).style.display = 'flex';
+        closeInfoMenu();
+    }
+    function closeModal(id) {
+        document.getElementById(id).style.display = 'none';
+    }
+    document.querySelectorAll('#termsModal, #privacyModal').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) closeModal(this.id);
+        });
+    });
+
+    // =============================================
+    // CUSTOM CURSOR — water ripple effect
+    // =============================================
+    const dot  = document.getElementById('cursorDot');
+    const ring = document.getElementById('cursorRing');
+
+    let mouseX = 0, mouseY = 0;
+    let ringX = 0, ringY = 0;
+    let lastTrailX = 0, lastTrailY = 0;
+    let started = false;
+
+    document.addEventListener('mousemove', function(e) {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+
+        dot.style.left = mouseX + 'px';
+        dot.style.top  = mouseY + 'px';
+
+        if (!started) {
+            ringX = mouseX;
+            ringY = mouseY;
+            started = true;
+        }
+
+        const dist = Math.hypot(mouseX - lastTrailX, mouseY - lastTrailY);
+        if (dist > 18) {
+            spawnTrail(mouseX, mouseY);
+            lastTrailX = mouseX;
+            lastTrailY = mouseY;
+        }
+    });
+
+    function animateRing() {
+        ringX += (mouseX - ringX) * 0.11;
+        ringY += (mouseY - ringY) * 0.11;
+        ring.style.left = ringX + 'px';
+        ring.style.top  = ringY + 'px';
+        requestAnimationFrame(animateRing);
+    }
+    animateRing();
+
+    function spawnTrail(x, y) {
+        const t = document.createElement('div');
+        t.className = 'cursor-trail';
+        t.style.left = x + 'px';
+        t.style.top  = y + 'px';
+        document.body.appendChild(t);
+        setTimeout(() => t.remove(), 800);
+    }
+
+    const hoverTargets = 'a, button, .filter-btn, .gallery-card, .team-card, .feature-card, .event-card, input, textarea, select';
+
+    document.addEventListener('mouseover', function(e) {
+        if (e.target.closest(hoverTargets)) {
+            dot.classList.add('hovering');
+            ring.classList.add('hovering');
+        }
+    });
+    document.addEventListener('mouseout', function(e) {
+        if (e.target.closest(hoverTargets)) {
+            dot.classList.remove('hovering');
+            ring.classList.remove('hovering');
+        }
+    });
+
+    document.addEventListener('mousedown', function() {
+        dot.classList.add('clicking');
+        for (let i = 0; i < 4; i++) {
+            setTimeout(() => spawnTrail(mouseX, mouseY), i * 60);
+        }
+    });
+    document.addEventListener('mouseup', function() {
+        dot.classList.remove('clicking');
+    });
+
+    document.addEventListener('mouseleave', function() {
+        dot.style.opacity = '0';
+        ring.style.opacity = '0';
+    });
+    document.addEventListener('mouseenter', function() {
+        dot.style.opacity = '1';
+        ring.style.opacity = '1';
+    });
 </script>
 
 </body>
