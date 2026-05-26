@@ -2,9 +2,35 @@
 session_start();
 require 'db.php';  // connect to MySQL
 
+// ── Photo review submission ──────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_review'])) {
+    $photo_id = (int)$_POST['photo_id'];
+    $reviewer = htmlspecialchars(trim($_POST['reviewer'] ?? ''));
+    $rating   = (int)$_POST['rating'];
+    $comment  = htmlspecialchars(trim($_POST['comment'] ?? ''));
+
+    if ($photo_id && $reviewer && $rating >= 1 && $rating <= 5 && $comment) {
+        $pdo->prepare(
+            "INSERT INTO photo_reviews (photo_id, reviewer, rating, comment) VALUES (?,?,?,?)"
+        )->execute([$photo_id, $reviewer, $rating, $comment]);
+    }
+    header("Location: #gallery");
+    exit;
+}
+
 // Load photos from database
 $gallery_items = $pdo->query("SELECT * FROM photos ORDER BY created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
 
+// Load reviews for each photo
+$reviews_raw = $pdo->query(
+    "SELECT * FROM photo_reviews ORDER BY created_at DESC"
+)->fetchAll(PDO::FETCH_ASSOC);
+
+// Group reviews by photo_id
+$reviews = [];
+foreach ($reviews_raw as $r) {
+    $reviews[$r['photo_id']][] = $r;
+}
 // Load events from database
 $events_raw = $pdo->query("SELECT * FROM events ORDER BY event_date ASC")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -1246,9 +1272,31 @@ html, body { cursor: none !important; }
     </div>
 <?php endif; ?>
             <div class="gallery-overlay">
-                <h3><?= htmlspecialchars($item['title']) ?></h3>
-                <p>by <?= htmlspecialchars($item['photographer']) ?></p>
-            </div>
+    <h3><?= htmlspecialchars($item['title']) ?></h3>
+    <p>by <?= htmlspecialchars($item['photographer']) ?></p>
+    <?php
+    $photo_reviews = $reviews[$item['id']] ?? [];
+    $avg = count($photo_reviews) > 0
+        ? round(array_sum(array_column($photo_reviews, 'rating')) / count($photo_reviews), 1)
+        : null;
+    ?>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+        <?php if ($avg): ?>
+            <span style="font-size:0.78rem;color:var(--gold);">
+                ★ <?= $avg ?> (<?= count($photo_reviews) ?>)
+            </span>
+        <?php else: ?>
+            <span style="font-size:0.75rem;color:var(--text-muted);">No reviews yet</span>
+        <?php endif; ?>
+        <button onclick="openReviewModal(<?= $item['id'] ?>, '<?= addslashes($item['title']) ?>', '<?= addslashes($item['photographer']) ?>')"
+                style="padding:4px 12px;background:rgba(124,58,237,0.3);
+                       border:1px solid var(--border-bright);border-radius:50px;
+                       color:var(--text-primary);font-size:0.72rem;
+                       cursor:pointer;font-family:var(--font-body);">
+            Reviews
+        </button>
+    </div>
+</div>
         </div>
     <?php endforeach; ?>
 <?php endif; ?>
@@ -1360,7 +1408,15 @@ html, body { cursor: none !important; }
                     <div class="contact-detail-icon">📍</div>
                     <div>
                         <div class="contact-detail-label">Location</div>
-                        <div class="contact-detail-value">KUET Campus, Khulna, Bangladesh</div>
+                        <a href="https://maps.google.com/?q=Khulna+University+of+Engineering+and+Technology,+Khulna,+Bangladesh"
+                         target="_blank"
+                         style="color:var(--text-primary);text-decoration:none;
+                         border-bottom:1px dashed var(--border-bright);
+                         transition:color 0.2s;"
+                         onmouseover="this.style.color='var(--purple-4)'"
+                         onmouseout="this.style.color='var(--text-primary)'">
+                         KUET Campus, Khulna, Bangladesh 🗺️
+                        </a>
                     </div>
                 </div>
                 <div class="contact-detail">
@@ -1512,6 +1568,99 @@ html, body { cursor: none !important; }
         </button>
     </div>
 </div>
+
+<!-- Review Modal -->
+<div id="reviewModal" style="display:none;position:fixed;inset:0;
+     background:rgba(0,0,0,0.75);z-index:1000;
+     align-items:center;justify-content:center;padding:24px;">
+    <div style="background:var(--bg-card);border:1px solid var(--border-bright);
+                border-radius:16px;padding:36px;max-width:560px;width:100%;
+                max-height:85vh;overflow-y:auto;position:relative;">
+
+        <button onclick="closeReviewModal()"
+                style="position:absolute;top:16px;right:16px;background:none;
+                       border:none;color:var(--text-muted);font-size:1.2rem;
+                       cursor:pointer;">✕</button>
+
+        <h2 id="reviewModalTitle"
+            style="font-family:var(--font-display);font-size:1.6rem;margin-bottom:4px;">
+        </h2>
+        <p id="reviewModalPhotographer"
+           style="font-size:0.8rem;color:var(--purple-4);margin-bottom:24px;">
+        </p>
+
+        <!-- Average rating display -->
+        <div id="reviewAverage" style="margin-bottom:24px;"></div>
+
+        <!-- Existing reviews -->
+        <div id="reviewList" style="margin-bottom:28px;"></div>
+
+        <!-- Submit new review -->
+        <div style="border-top:1px solid var(--border);padding-top:20px;">
+            <h3 style="font-size:0.82rem;text-transform:uppercase;
+                       letter-spacing:0.1em;color:var(--pl);margin-bottom:16px;">
+                Leave a Review
+            </h3>
+            <form method="POST" action="#gallery">
+                <input type="hidden" name="submit_review" value="1">
+                <input type="hidden" name="photo_id" id="reviewPhotoId" value="">
+
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-size:0.72rem;text-transform:uppercase;
+                                  letter-spacing:0.08em;color:var(--text-muted);margin-bottom:7px;">
+                        Your Name *
+                    </label>
+                    <input type="text" name="reviewer" placeholder="e.g. Arif Hossain"
+                           required
+                           style="width:100%;padding:10px 14px;background:var(--bg-deep);
+                                  border:1px solid var(--border);border-radius:7px;
+                                  color:var(--text-primary);font-family:var(--font-body);
+                                  font-size:0.9rem;outline:none;">
+                </div>
+
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-size:0.72rem;text-transform:uppercase;
+                                  letter-spacing:0.08em;color:var(--text-muted);margin-bottom:7px;">
+                        Rating *
+                    </label>
+                    <div style="display:flex;gap:8px;">
+                        <?php for ($i = 1; $i <= 5; $i++): ?>
+                        <label style="cursor:pointer;display:flex;align-items:center;gap:4px;
+                                      font-size:0.9rem;color:var(--text-secondary);">
+                            <input type="radio" name="rating" value="<?= $i ?>"
+                                   <?= $i === 5 ? 'checked' : '' ?>
+                                   style="width:auto;accent-color:var(--purple-2);">
+                            <?= $i ?>★
+                        </label>
+                        <?php endfor; ?>
+                    </div>
+                </div>
+
+                <div style="margin-bottom:16px;">
+                    <label style="display:block;font-size:0.72rem;text-transform:uppercase;
+                                  letter-spacing:0.08em;color:var(--text-muted);margin-bottom:7px;">
+                        Comment *
+                    </label>
+                    <textarea name="comment" placeholder="Share your thoughts..."
+                              required
+                              style="width:100%;padding:10px 14px;background:var(--bg-deep);
+                                     border:1px solid var(--border);border-radius:7px;
+                                     color:var(--text-primary);font-family:var(--font-body);
+                                     font-size:0.9rem;outline:none;height:90px;resize:vertical;">
+                    </textarea>
+                </div>
+
+                <button type="submit"
+                        style="padding:11px 28px;background:linear-gradient(135deg,var(--purple-2),var(--purple-1));
+                               color:#fff;border:none;border-radius:7px;font-size:0.9rem;
+                               font-family:var(--font-body);cursor:pointer;">
+                    Submit Review
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
 
 <!-- =================
      JAVASCRIPT — Hamburger + Client-side gallery filter
@@ -1672,6 +1821,56 @@ html, body { cursor: none !important; }
         dot.style.opacity = '1';
         ring.style.opacity = '1';
     });
+
+    // Review modal data — passed from PHP
+const allReviews = <?= json_encode($reviews) ?>;
+
+function openReviewModal(photoId, title, photographer) {
+    document.getElementById('reviewPhotoId').value = photoId;
+    document.getElementById('reviewModalTitle').textContent = title;
+    document.getElementById('reviewModalPhotographer').textContent = 'by ' + photographer;
+
+    // Show reviews
+    const photoReviews = allReviews[photoId] || [];
+    const listEl = document.getElementById('reviewList');
+    const avgEl  = document.getElementById('reviewAverage');
+
+    if (photoReviews.length === 0) {
+        listEl.innerHTML = '<p style="color:var(--text-muted);font-size:0.88rem;">No reviews yet — be the first!</p>';
+        avgEl.innerHTML  = '';
+    } else {
+        const avg = (photoReviews.reduce((s, r) => s + r.rating, 0) / photoReviews.length).toFixed(1);
+        avgEl.innerHTML = `
+            <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:2rem;font-weight:700;color:var(--gold);">${avg}</span>
+                <div>
+                    <div style="color:var(--gold);font-size:1rem;">${'★'.repeat(Math.round(avg))}${'☆'.repeat(5 - Math.round(avg))}</div>
+                    <div style="font-size:0.78rem;color:var(--text-muted);">${photoReviews.length} review${photoReviews.length > 1 ? 's' : ''}</div>
+                </div>
+            </div>`;
+
+        listEl.innerHTML = photoReviews.map(r => `
+            <div style="padding:14px 0;border-bottom:1px solid var(--border);">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span style="font-weight:500;font-size:0.9rem;">${r.reviewer}</span>
+                    <span style="color:var(--gold);font-size:0.9rem;">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</span>
+                </div>
+                <p style="font-size:0.85rem;color:var(--text-secondary);">${r.comment}</p>
+                <span style="font-size:0.72rem;color:var(--text-muted);">${r.created_at}</span>
+            </div>`).join('');
+    }
+
+    document.getElementById('reviewModal').style.display = 'flex';
+}
+
+function closeReviewModal() {
+    document.getElementById('reviewModal').style.display = 'none';
+}
+
+// Close on backdrop click
+document.getElementById('reviewModal').addEventListener('click', function(e) {
+    if (e.target === this) closeReviewModal();
+});
 </script>
 
 </body>
