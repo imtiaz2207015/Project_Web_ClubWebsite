@@ -26,13 +26,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $admin = $stmt->fetch(PDO::FETCH_ASSOC);
 
         // password_verify() checks plain password against stored hash
-        if ($admin && password_verify($password, $admin['password'])) {
-            // Login success — store session
-            $_SESSION['admin_logged_in'] = true;
-            $_SESSION['admin_username']  = $admin['username'];
-            $_SESSION['admin_id']        = $admin['id'];
-            header("Location: admin.php");
-            exit;
+if ($admin && password_verify($password, $admin['password'])) {
+    // Set session
+    $_SESSION['admin_logged_in'] = true;
+    $_SESSION['admin_username']  = $admin['username'];
+    $_SESSION['admin_id']        = $admin['id'];
+
+    // Set cookie for 2 days (2 * 24 * 60 * 60 = 172800 seconds)
+    $cookie_expire = time() + 172800;
+    setcookie('admin_remember', base64_encode($admin['username'] . ':' . hash('sha256', $admin['password'])), [
+        'expires'  => $cookie_expire,
+        'path'     => '/',
+        'httponly' => true,
+        'samesite' => 'Strict'
+    ]);
+
+    header("Location: admin.php");
+    exit;
         } else {
             $error = "Invalid username or password.";
             // Small delay to slow brute-force attempts

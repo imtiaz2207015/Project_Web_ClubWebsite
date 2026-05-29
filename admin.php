@@ -1,6 +1,25 @@
 <?php
 session_start();
 
+// Check cookie if session expired
+if (!isset($_SESSION['admin_logged_in']) && isset($_COOKIE['admin_remember'])) {
+    require 'db.php';
+    $decoded  = base64_decode($_COOKIE['admin_remember']);
+    $parts    = explode(':', $decoded, 2);
+    $username = $parts[0] ?? '';
+    $hash     = $parts[1] ?? '';
+
+    $stmt = $pdo->prepare("SELECT * FROM admins WHERE username=? LIMIT 1");
+    $stmt->execute([$username]);
+    $admin = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($admin && $hash === hash('sha256', $admin['password'])) {
+        $_SESSION['admin_logged_in'] = true;
+        $_SESSION['admin_username']  = $admin['username'];
+        $_SESSION['admin_id']        = $admin['id'];
+    }
+}
+
 if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
     header("Location: adminlogin.php");
     exit;
@@ -101,8 +120,9 @@ if (isset($_GET['delete_event'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_event'])) {
-    $pdo->prepare("INSERT INTO events (title,location,event_date,spots) VALUES(?,?,?,?)")
-        ->execute([trim($_POST['ev_title']), trim($_POST['ev_location']), $_POST['ev_date'], (int)$_POST['ev_spots']]);
+    $spots = (int)$_POST['ev_spots'];
+    $pdo->prepare("INSERT INTO events (title,location,event_date,spots,total_spots) VALUES(?,?,?,?,?)")
+        ->execute([trim($_POST['ev_title']), trim($_POST['ev_location']), $_POST['ev_date'], $spots, $spots]);
     header("Location: admin.php?tab=events&msg=Event+added");
     exit;
 }
@@ -115,8 +135,9 @@ if (isset($_GET['edit_event'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_event'])) {
-    $pdo->prepare("UPDATE events SET title=?,location=?,event_date=?,spots=? WHERE id=?")
-        ->execute([trim($_POST['ev_title']), trim($_POST['ev_location']), $_POST['ev_date'], (int)$_POST['ev_spots'], (int)$_POST['event_id']]);
+    $spots = (int)$_POST['ev_spots'];
+    $pdo->prepare("UPDATE events SET title=?,location=?,event_date=?,spots=?,total_spots=? WHERE id=?")
+        ->execute([trim($_POST['ev_title']), trim($_POST['ev_location']), $_POST['ev_date'], $spots, $spots, (int)$_POST['event_id']]);
     header("Location: admin.php?tab=events&msg=Event+updated");
     exit;
 }

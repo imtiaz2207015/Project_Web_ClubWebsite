@@ -9,7 +9,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_review'])) {
     $rating   = (int)$_POST['rating'];
     $comment  = htmlspecialchars(trim($_POST['comment'] ?? ''));
 
-    if ($photo_id && $reviewer && $rating >= 1 && $rating <= 5 && $comment) {
+   if ($photo_id && $rating >= 1 && $rating <= 5 && $comment) {
+    $reviewer = $reviewer ?: 'Anonymous';
         $pdo->prepare(
             "INSERT INTO photo_reviews (photo_id, reviewer, rating, comment) VALUES (?,?,?,?)"
         )->execute([$photo_id, $reviewer, $rating, $comment]);
@@ -38,17 +39,19 @@ $events_raw = $pdo->query("SELECT * FROM events ORDER BY event_date ASC")->fetch
 $events = [];
 foreach ($events_raw as $ev) {
     $events[] = [
-        'date'     => date('d M Y', strtotime($ev['event_date'])),
-        'title'    => $ev['title'],
-        'location' => $ev['location'],
-        'spots'    => $ev['spots'],
+        'id'          => $ev['id'],
+        'date'        => date('d M Y', strtotime($ev['event_date'])),
+        'title'       => $ev['title'],
+        'location'    => $ev['location'],
+        'spots'       => $ev['spots'],
+        'total_spots' => $ev['total_spots'],
     ];
 }
 
-// ADD THIS — was completely missing
+// Load team members from database
 $team = $pdo->query("SELECT * FROM team ORDER BY sort_order ASC")->fetchAll(PDO::FETCH_ASSOC);
 
-// ADD THIS — contact form handling was also missing
+// Handle contact form submission
 $form_success = false;
 $form_errors  = [];
 $sticky = ['name'=>'', 'email'=>'', 'subject'=>'', 'message'=>''];
@@ -77,6 +80,82 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
         $sticky = ['name'=>'','email'=>'','subject'=>'','message'=>''];
     }
 }
+
+// ── Event Registration ───────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_event'])) {
+    $event_id = (int)$_POST['event_id'];
+    $name     = htmlspecialchars(trim($_POST['reg_name'] ?? ''));
+    $roll     = trim($_POST['reg_roll'] ?? '');
+    $email    = trim($_POST['reg_email'] ?? '');
+
+    $reg_errors = [];
+
+    // Validate roll — must be exactly 7 digits
+    if (!preg_match('/^\d{7}$/', $roll)) {
+        $reg_errors[] = "Roll number must be exactly 7 digits (KUET students only).";
+    }
+
+    // Validate email
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $reg_errors[] = "Valid email is required.";
+    }
+
+    // Check seats available
+    $ev = $pdo->prepare("SELECT * FROM events WHERE id=?");
+    $ev->execute([$event_id]);
+    $event_row = $ev->fetch(PDO::FETCH_ASSOC);
+
+    if (!$event_row) {
+        $reg_errors[] = "Event not found.";
+    } elseif ($event_row['spots'] <= 0) {
+        $reg_errors[] = "Sorry, no seats left for this event.";
+    }
+
+    // Check if roll already registered for this event
+    if (empty($reg_errors)) {
+        $check = $pdo->prepare("SELECT id FROM event_registrations WHERE event_id=? AND roll=?");
+        $check->execute([$event_id, $roll]);
+        if ($check->fetch()) {
+            $reg_errors[] = "This roll number is already registered for this event.";
+        }
+    }
+
+    if (empty($reg_errors)) {
+        // Save registration
+        $pdo->prepare(
+            "INSERT INTO event_registrations (event_id, name, roll, email) VALUES (?,?,?,?)"
+        )->execute([$event_id, $name ?: 'Anonymous', $roll, $email]);
+
+        // Decrement seats
+        $pdo->prepare("UPDATE events SET spots = spots - 1 WHERE id=?")
+            ->execute([$event_id]);
+
+        // Save to messages table so admin sees it
+        $msg_text = "Event Registration\nEvent: {$event_row['title']}\nRoll: $roll\nEmail: $email";
+        $pdo->prepare(
+            "INSERT INTO messages (name, email, subject, message) VALUES (?,?,?,?)"
+        )->execute([
+            $name ?: 'Anonymous',
+            $email,
+            "Registration: {$event_row['title']}",
+            $msg_text
+        ]);
+
+        header("Location: #events");
+        exit;
+    }
+
+    // Store errors in session to show after redirect
+    $_SESSION['reg_errors']   = $reg_errors;
+    $_SESSION['reg_event_id'] = $event_id;
+    header("Location: #events");
+    exit;
+}
+
+// Pick up registration errors from session
+$reg_errors   = $_SESSION['reg_errors'] ?? [];
+$reg_event_id = $_SESSION['reg_event_id'] ?? null;
+unset($_SESSION['reg_errors'], $_SESSION['reg_event_id']);
 
 ?>
 <!DOCTYPE html>
@@ -194,7 +273,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
         .logo-img{
             width: 100%;
             height: 100%;
-            object-fit: cover; /* makes it fill circle properly */
+            object-fit: cover; 
         }
         .nav-logo-text {
             font-family: var(--font-display);
@@ -1211,9 +1290,20 @@ html, body { cursor: none !important; }
 
             <div class="about-visual">
                 <div class="about-img-frame">
-                    <!-- Replace src with actual image -->
-                    <span style="position:relative;z-index:1;">📷</span>
-                </div>
+    <?php
+    $about_img = __DIR__ . '/images/about.jpg';
+    if (file_exists($about_img)): ?>
+        <img src="images/about.jpg" alt="About KUET Photography Society">
+    <?php else: ?>
+        <svg width="80" height="80" viewBox="0 0 24 24" fill="none"
+             style="opacity:0.3;position:relative;z-index:1;">
+            <path d="M23 19C23 20.1 22.1 21 21 21H3C1.9 21 1 20.1 1 19V8C1 6.9 1.9 6 3 6H7L9 3H15L17 6H21C22.1 6 23 6.9 23 8V19Z"
+                  stroke="var(--purple-4)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="12" cy="13" r="4" stroke="var(--purple-4)" stroke-width="1"/>
+            <circle cx="18" cy="9" r="1.5" fill="var(--purple-4)"/>
+        </svg>
+    <?php endif; ?>
+</div>
             </div>
         </div>
     </div>
@@ -1322,20 +1412,44 @@ html, body { cursor: none !important; }
                 $day   = $parts[0];
                 $month = $parts[1] . ' ' . $parts[2];
             ?>
-            <div class="event-card">
-                <div class="event-date">
-                    <div class="day"><?= $day ?></div>
-                    <div class="month"><?= $month ?></div>
-                </div>
-                <div class="event-info">
-                    <h3><?= htmlspecialchars($ev['title']) ?></h3>
-                    <div class="event-meta">
-                        <span>📍 <?= htmlspecialchars($ev['location']) ?></span>
-                        <span>👥 <?= $ev['spots'] ?> spots</span>
-                    </div>
-                </div>
-                <div class="event-spots"><?= $ev['spots'] ?> Seats Left</div>
-            </div>
+         <div class="event-card">
+    <div class="event-date">
+        <div class="day"><?= $day ?></div>
+        <div class="month"><?= $month ?></div>
+    </div>
+    <div class="event-info">
+        <h3><?= htmlspecialchars($ev['title']) ?></h3>
+        <div class="event-meta">
+            <span>📍 <?= htmlspecialchars($ev['location']) ?></span>
+            <!-- Total seats — fixed, never changes -->
+            <span>👥 <?= $ev['total_spots'] ?> total seats</span>
+        </div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+        <!-- Seats left — decrements -->
+        <div class="event-spots">
+            <?= $ev['spots'] ?> Left
+        </div>
+        <?php if ($ev['spots'] > 0): ?>
+            <button onclick="openRegModal(
+                        <?= $ev['id'] ?>,
+                        <?= $ev['spots'] ?>,
+                        '<?= addslashes($ev['title']) ?>',
+                        '<?= addslashes($ev['location']) ?>',
+                        '<?= addslashes($ev['date']) ?>'
+                     )"
+                    style="padding:6px 18px;
+                           background:linear-gradient(135deg,var(--purple-2),var(--purple-1));
+                           color:#fff;border:none;border-radius:50px;font-size:0.78rem;
+                           cursor:pointer;font-family:var(--font-body);
+                           box-shadow:0 2px 12px rgba(124,58,237,0.3);">
+                Register
+            </button>
+        <?php else: ?>
+            <span style="font-size:0.78rem;color:var(--red);">Full</span>
+        <?php endif; ?>
+    </div>
+</div>
             <?php endforeach; ?>
         </div>
     </div>
@@ -1661,6 +1775,76 @@ html, body { cursor: none !important; }
     </div>
 </div>
 
+<!-- Event Registration Modal -->
+<div id="regModal" style="display:none;position:fixed;inset:0;
+     background:rgba(0,0,0,0.75);z-index:1000;
+     align-items:center;justify-content:center;padding:24px;">
+    <div style="background:var(--bg-card);border:1px solid var(--border-bright);
+                border-radius:16px;padding:36px;max-width:500px;width:100%;
+                max-height:90vh;overflow-y:auto;position:relative;">
+
+        <button onclick="closeRegModal()"
+                style="position:absolute;top:16px;right:16px;background:none;
+                       border:none;color:var(--text-muted);font-size:1.2rem;cursor:pointer;">✕</button>
+
+        <h2 id="regModalTitle"
+            style="font-family:var(--font-display);font-size:1.6rem;margin-bottom:4px;"></h2>
+        <p id="regModalMeta"
+           style="font-size:0.82rem;color:var(--purple-4);margin-bottom:24px;"></p>
+
+        <div id="regErrors" style="display:none;padding:12px 16px;
+             background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.3);
+             border-radius:8px;color:#fca5a5;margin-bottom:20px;font-size:0.88rem;">
+        </div>
+
+        <form method="POST" action="#events">
+            <input type="hidden" name="register_event" value="1">
+            <input type="hidden" name="event_id" id="regEventId" value="">
+
+            <!-- Name (optional) -->
+            <div style="margin-bottom:16px;">
+                <label style="display:block;font-size:0.72rem;text-transform:uppercase;
+                              letter-spacing:0.08em;color:var(--text-muted);margin-bottom:7px;">
+                    Full Name <span style="color:var(--text-muted);font-size:0.65rem;">(optional)</span>
+                </label>
+                <input type="text" name="reg_name" placeholder="Your name (or leave blank)">
+            </div>
+
+            <!-- Roll number (required, 7 digits) -->
+            <div style="margin-bottom:16px;">
+                <label style="display:block;font-size:0.72rem;text-transform:uppercase;
+                              letter-spacing:0.08em;color:var(--text-muted);margin-bottom:7px;">
+                    KUET Roll Number * <span style="color:var(--accent);font-size:0.65rem;">(7 digits only)</span>
+                </label>
+                <input type="text" name="reg_roll"
+                       placeholder="e.g. 2007052"
+                       maxlength="7"
+                       pattern="\d{7}"
+                       required>
+            </div>
+
+            <!-- Email (required) -->
+            <div style="margin-bottom:20px;">
+                <label style="display:block;font-size:0.72rem;text-transform:uppercase;
+                              letter-spacing:0.08em;color:var(--text-muted);margin-bottom:7px;">
+                    Email *
+                </label>
+                <input type="email" name="reg_email"
+                       placeholder="your@email.com" required>
+            </div>
+
+            <button type="submit"
+                    style="width:100%;padding:13px;
+                           background:linear-gradient(135deg,var(--purple-2),var(--purple-1));
+                           color:#fff;border:none;border-radius:7px;font-size:0.95rem;
+                           font-family:var(--font-body);cursor:pointer;
+                           box-shadow:0 4px 20px rgba(124,58,237,0.4);">
+                Register Now →
+            </button>
+        </form>
+    </div>
+</div>
+
 
 <!-- =================
      JAVASCRIPT — Hamburger + Client-side gallery filter
@@ -1870,6 +2054,21 @@ function closeReviewModal() {
 // Close on backdrop click
 document.getElementById('reviewModal').addEventListener('click', function(e) {
     if (e.target === this) closeReviewModal();
+});
+
+// Registration modal
+function openRegModal(eventId, spots, title, location, date) {
+    document.getElementById('regEventId').value = eventId;
+    document.getElementById('regModalTitle').textContent = title;
+    document.getElementById('regModalMeta').textContent =
+        '📍 ' + location + '  •  📅 ' + date + '  •  👥 ' + spots + ' seats left';
+    document.getElementById('regModal').style.display = 'flex';
+}
+function closeRegModal() {
+    document.getElementById('regModal').style.display = 'none';
+}
+document.getElementById('regModal').addEventListener('click', function(e) {
+    if (e.target === this) closeRegModal();
 });
 </script>
 
