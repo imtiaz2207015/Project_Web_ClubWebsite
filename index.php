@@ -1335,7 +1335,7 @@ html, body { cursor: none !important; }
         <p>No photos yet. Add some from the admin panel.</p>
     </div>
 <?php else: ?>
-   <?php foreach ($gallery_items as $item): ?>
+   <?php foreach (array_slice($gallery_items, 0, 3) as $item): ?>
     <div class="gallery-card" data-category="<?= htmlspecialchars($item['category']) ?>">
         <?php
         $img_path      = 'images/' . $item['filename'];
@@ -1391,6 +1391,17 @@ html, body { cursor: none !important; }
     <?php endforeach; ?>
 <?php endif; ?>
 </div><!-- end gallery-grid -->
+    <div style="text-align:center;margin-top:40px;">
+    <a href="gallery.php"
+       style="padding:14px 36px;
+              background:linear-gradient(135deg,var(--purple-2),var(--purple-1));
+              color:#fff;text-decoration:none;border-radius:var(--radius-sm);
+              font-family:var(--font-body);font-size:0.9rem;font-weight:500;
+              box-shadow:0 4px 24px rgba(124,58,237,0.4);
+              transition:all 0.3s ease;display:inline-block;">
+        View Gallery →
+    </a>
+</div>
 </div><!-- end container -->
 </section>
 
