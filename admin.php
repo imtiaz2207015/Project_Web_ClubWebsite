@@ -1,25 +1,6 @@
 <?php
 session_start();
 
-// Check cookie if session expired
-if (!isset($_SESSION['admin_logged_in']) && isset($_COOKIE['admin_remember'])) {
-    require 'db.php';
-    $decoded  = base64_decode($_COOKIE['admin_remember']);
-    $parts    = explode(':', $decoded, 2);
-    $username = $parts[0] ?? '';
-    $hash     = $parts[1] ?? '';
-
-    $stmt = $pdo->prepare("SELECT * FROM admins WHERE username=? LIMIT 1");
-    $stmt->execute([$username]);
-    $admin = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($admin && $hash === hash('sha256', $admin['password'])) {
-        $_SESSION['admin_logged_in'] = true;
-        $_SESSION['admin_username']  = $admin['username'];
-        $_SESSION['admin_id']        = $admin['id'];
-    }
-}
-
 if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
     header("Location: adminlogin.php");
     exit;

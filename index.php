@@ -9,8 +9,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_review'])) {
     $rating   = (int)$_POST['rating'];
     $comment  = htmlspecialchars(trim($_POST['comment'] ?? ''));
 
-   if ($photo_id && $rating >= 1 && $rating <= 5 && $comment) {
-    $reviewer = $reviewer ?: 'Anonymous';
+    if ($photo_id && $rating >= 1 && $rating <= 5 && $comment) {
+        $reviewer = $reviewer ?: 'Anonymous';
         $pdo->prepare(
             "INSERT INTO photo_reviews (photo_id, reviewer, rating, comment) VALUES (?,?,?,?)"
         )->execute([$photo_id, $reviewer, $rating, $comment]);
@@ -89,6 +89,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_event'])) {
     $email    = trim($_POST['reg_email'] ?? '');
 
     $reg_errors = [];
+
+    if (empty($name)) {
+    $reg_errors[] = "Full name is required for registration.";
+}
 
     // Validate roll — must be exactly 7 digits
     if (!preg_match('/^\d{7}$/', $roll)) {
@@ -1731,12 +1735,10 @@ html, body { cursor: none !important; }
                 <input type="hidden" name="photo_id" id="reviewPhotoId" value="">
 
                 <div style="margin-bottom:14px;">
-                    <label style="display:block;font-size:0.72rem;text-transform:uppercase;
-                                  letter-spacing:0.08em;color:var(--text-muted);margin-bottom:7px;">
-                        Your Name *
-                    </label>
-                    <input type="text" name="reviewer" placeholder="e.g. Arif Hossain"
-                           required
+                   <label style="...">
+                       Your Name <span style="color:var(--text-muted);font-size:0.65rem;">(optional — leave blank for Anonymous)</span>
+                   </label>
+                    <input type="text" name="reviewer" placeholder="Your name (or leave blank)"
                            style="width:100%;padding:10px 14px;background:var(--bg-deep);
                                   border:1px solid var(--border);border-radius:7px;
                                   color:var(--text-primary);font-family:var(--font-body);
@@ -1812,13 +1814,13 @@ html, body { cursor: none !important; }
             <input type="hidden" name="register_event" value="1">
             <input type="hidden" name="event_id" id="regEventId" value="">
 
-            <!-- Name (optional) -->
+            <!-- Name (mandatory) -->
             <div style="margin-bottom:16px;">
                 <label style="display:block;font-size:0.72rem;text-transform:uppercase;
                               letter-spacing:0.08em;color:var(--text-muted);margin-bottom:7px;">
-                    Full Name <span style="color:var(--text-muted);font-size:0.65rem;">(optional)</span>
+                    Full Name *
                 </label>
-                <input type="text" name="reg_name" placeholder="Your name (or leave blank)">
+                <input type="text" name="reg_name" placeholder="Your name" required>
             </div>
 
             <!-- Roll number (required, 7 digits) -->
