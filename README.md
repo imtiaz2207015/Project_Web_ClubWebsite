@@ -1,136 +1,23 @@
-# 📸 KUET Photography Society — Club Portfolio Website
+This is a club portfolio website I built for the KUET Photography Society as a Web Programming lab project.
+What it does
+The site has a public-facing side and an admin panel. Visitors can browse the photo gallery, check upcoming events and register for them, see the team, and send a message through a contact form. The admin can log in to manage all of that — adding photos, creating events, updating team members, and reading submitted messages.
+Tech used
+Built with PHP (procedural style with PDO) on the backend, MySQL for the database, and plain HTML, CSS, and JavaScript on the frontend. Runs on XAMPP locally.
+Project files
+The main page is index.php, which pulls together the hero section, gallery, events, team, and contact form. admin.php is the dashboard, protected by session-based login. db.php holds the database connection, and uploaded images go into the images/ folder.
+Database
+Six tables: photos, photo_reviews, events, event_registrations, team, and messages. Pretty self-explanatory from the names.
+How to run it
 
-A full-stack club portfolio website built for the **KUET Photography Society (KUETS)** as part of a Web Programming lab project. The site showcases the club's gallery, events, team members, and allows visitors to contact the club or register for events — all managed through a dynamic admin panel.
+Clone the repo and drop it into htdocs
+Create a database in phpMyAdmin (e.g. kuet_club) and import the schema
+Update db.php with your database name and credentials
+Start Apache and MySQL in XAMPP, then open http://localhost/Project_Web_ClubWebsite/
 
----
+Admin login is at /adminlogin.php.
+A few things worth noting
+Event registration validates KUET roll numbers (must be 7 digits), prevents duplicate sign-ups, and updates available seats live. The photo gallery has a 1–5 star rating and comment system. The whole admin area is session-protected.
+Design
+Dark theme — near-black background with purple and fuchsia accents. Fonts are Cormorant Garamond for headings and DM Sans for body text. Layout uses CSS Grid and Flexbox, and it's mobile-responsive with a hamburger menu.
 
-## 🌐 Live Features
-
-- **Hero Section** — Club intro with animated stats (members, events, photos)
-- **About Section** — Club overview with feature highlights
-- **Photo Gallery** — Dynamic gallery loaded from database, with category filters and a photo review/rating system
-- **Events** — Upcoming events with seat tracking and registration system (KUET roll number validated)
-- **Team** — Team members display loaded from database
-- **Contact Form** — Visitor messages stored in the database
-- **Admin Panel** — Secured admin dashboard to manage photos, events, team, and messages
-- **Responsive Design** — Mobile-friendly layout with hamburger navigation
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Backend | PHP (procedural + PDO) |
-| Database | MySQL |
-| Frontend | HTML5, CSS3 (custom dark theme), vanilla JavaScript |
-| Fonts | Google Fonts — Cormorant Garamond, DM Sans |
-| Server | XAMPP (Apache + MySQL) |
-
----
-
-## 📁 Project Structure
-
-```
-Project_Web_ClubWebsite/
-├── index.php           # Main public-facing page (hero, gallery, events, team, contact)
-├── gallery.php         # Gallery page
-├── applications.html   # Club membership application form
-├── admin.php           # Admin dashboard (protected)
-├── adminlogin.php      # Admin login page
-├── adminlogout.php     # Admin logout handler
-├── db.php              # Database connection (PDO)
-├── images/             # Uploaded/stored images
-└── Mainlogo.png        # Club logo
-```
-
----
-
-## 🗄️ Database Tables
-
-| Table | Purpose |
-|---|---|
-| `photos` | Gallery photos with categories |
-| `photo_reviews` | Visitor ratings & comments on photos |
-| `events` | Upcoming events with seat counts |
-| `event_registrations` | Tracks who registered for each event |
-| `team` | Team members with roles and sort order |
-| `messages` | Contact form submissions + event registration notifications |
-
----
-
-## ⚙️ Setup Instructions
-
-### Prerequisites
-- XAMPP (or any Apache + PHP + MySQL stack)
-- PHP 7.4 or higher
-
-### Steps
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/imtiaz2207015/Project_Web_ClubWebsite.git
-   ```
-
-2. **Move to your web server directory**
-   ```
-   C:/xampp/htdocs/Project_Web_ClubWebsite/
-   ```
-
-3. **Create the database**
-   - Open **phpMyAdmin** → create a database (e.g., `kuet_club`)
-   - Import the SQL schema (create tables: `photos`, `photo_reviews`, `events`, `event_registrations`, `team`, `messages`)
-
-4. **Configure the database connection**
-   Edit `db.php`:
-   ```php
-   $host = 'localhost';
-   $db   = 'kuet_club';
-   $user = 'root';
-   $pass = '';
-   $pdo  = new PDO("mysql:host=$host;dbname=$db;charset=utf8", $user, $pass);
-   ```
-
-5. **Run the project**
-   - Start Apache and MySQL in XAMPP
-   - Visit: `http://localhost/Project_Web_ClubWebsite/`
-
----
-
-## 🔐 Admin Panel
-
-- URL: `http://localhost/Project_Web_ClubWebsite/adminlogin.php`
-- Log in with admin credentials to manage gallery photos, events, team members, and view submitted messages/registrations.
-
----
-
-## ✅ Key Functionalities
-
-- **Event Registration** — Validates KUET student roll numbers (7 digits), checks for duplicate registrations, and decrements available seats in real time
-- **Photo Reviews** — Visitors can rate and comment on gallery photos (1–5 stars)
-- **Contact Form** — Input-validated, stored in DB, visible in admin panel
-- **Session-based Admin Auth** — Admin routes protected with PHP sessions
-- **Responsive Navigation** — Hamburger menu for mobile screens
-
----
-
-## 🎨 Design
-
-- **Theme:** Dark purple aesthetic (`#07050f` background, `#7c3aed` purple accents, `#e879f9` fuchsia highlights)
-- **Typography:** Cormorant Garamond (display) + DM Sans (body)
-- **Layout:** CSS Grid and Flexbox throughout
-- **Animations:** Fade-in/fade-up keyframes on hero section
-
----
-
-## 👤 Author
-
-**Tahani** — Student ID: 2207015
-Khulna University of Engineering & Technology (KUET)
-Web Programming Lab Project
-
----
-
-## 📄 License
-
-This project is for academic purposes only.
+Tahani · Student ID: 2207015 · KUET · Web Programming Lab
