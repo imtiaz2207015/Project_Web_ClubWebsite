@@ -1,13 +1,15 @@
 This is a club portfolio website I built for the KUET Photography Society as a Web Programming lab project.
-What it does
+
+
 The site has a public-facing side and an admin panel. Visitors can browse the photo gallery, check upcoming events and register for them, see the team, and send a message through a contact form. The admin can log in to manage all of that — adding photos, creating events, updating team members, and reading submitted messages.
-Tech used
+
+
 Built with PHP (procedural style with PDO) on the backend, MySQL for the database, and plain HTML, CSS, and JavaScript on the frontend. Runs on XAMPP locally.
-Project files
+
+
 The main page is index.php, which pulls together the hero section, gallery, events, team, and contact form. admin.php is the dashboard, protected by session-based login. db.php holds the database connection, and uploaded images go into the images/ folder.
-Database
-Six tables: photos, photo_reviews, events, event_registrations, team, and messages. Pretty self-explanatory from the names.
-How to run it
+
+Database : Six tables: photos, photo_reviews, events, event_registrations, team, and messages. Pretty self-explanatory from the names.
 
 Clone the repo and drop it into htdocs
 Create a database in phpMyAdmin (e.g. kuet_club) and import the schema
